@@ -11,36 +11,64 @@ jobs:
   sync:
     name: Sync server/ to VPS
     runs-on: ubuntu-latest
+    # Roda apenas se TODOS os secrets necessarios estiverem setados.
+    # Sem eles, o job sai como skipped (nao quebra a UI do Actions).
+    if: |
+      vars.VPS_HOST != '' || secrets.VPS_HOST != ''
     steps:
+      - name: Check required secrets
+        run: |
+          fail=0
+          for var in VPS_HOST VPS_PORT VPS_USER VPS_SSH_KEY; do
+            if [ -z "${!var}" ]; then echo "Missing secret: $var"; fail=1; fi
+          done
+          [ $fail -eq 0 ] || exit 1
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+
       - uses: actions/checkout@v4
 
       - name: Setup SSH
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          echo "$VPS_SSH_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p ${{ secrets.VPS_PORT }} -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -p "$VPS_PORT" -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Sync server/ to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
         run: |
-          scp -P ${{ secrets.VPS_PORT }} \
+          scp -P "$VPS_PORT" \
             server/api_server.py \
-            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/dlibras/libras-vision/api_server.py
+            "${VPS_USER}@${VPS_HOST}:/opt/dlibras/libras-vision/api_server.py"
 
-          scp -P ${{ secrets.VPS_PORT }} \
+          scp -P "$VPS_PORT" \
             server/Dockerfile.api \
             server/docker-compose.yml \
-            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/dlibras/
+            "${VPS_USER}@${VPS_HOST}:/opt/dlibras/"
 
       - name: Rebuild + restart container
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          VPS_USER: ${{ secrets.VPS_USER }}
         run: |
-          ssh -p ${{ secrets.VPS_PORT }} \
-            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+          ssh -p "$VPS_PORT" "${VPS_USER}@${VPS_HOST}" \
             "cd /opt/dlibras && docker compose build api && docker compose up -d"
 
       - name: Health check
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
         run: |
           sleep 15
-          curl --fail --max-time 10 \
-            http://${{ secrets.VPS_HOST }}:8801/health \
-            | jq -e '.status == "ok"'
+          curl --fail --max-time 10 "http://${VPS_HOST}:8801/health" | jq -e '.status == "ok"'
