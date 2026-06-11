@@ -56,6 +56,7 @@ function AppStack() {
         <Stack.Screen name="about" />
         <Stack.Screen name="leaderboard" />
         <Stack.Screen name="teacher-dashboard" />
+        <Stack.Screen name="sso-callback" />
       </Stack>
       {/* Banner global de unlock — fica sobre qualquer screen. */}
       <AchievementToast />

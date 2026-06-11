@@ -27,10 +27,11 @@ import { useLearningStore } from "@/store/learningStore";
 
 WebBrowser.maybeCompleteAuthSession();
 
-// Em web, COOP (Cross-Origin-Opener-Policy) bloqueia o popup de OAuth do
-// Clerk — startSSOFlow trava porque não detecta `window.closed`. No celular
-// funciona normalmente. Escondemos os botões sociais no web pra não confundir.
-const ssoAvailable = Platform.OS !== "web";
+// SSO habilitado em todas as plataformas. No web usamos redirect flow
+// (authenticateWithRedirect) — página inteira navega pro Google e volta,
+// sem popup, o que elimina o bug de COOP (window.closed bloqueado).
+// No native continua o startSSOFlow com browser session normal.
+const ssoAvailable = true;
 
 type SSOStrategy = "oauth_google" | "oauth_facebook" | "oauth_apple";
 
@@ -181,6 +182,33 @@ export default function SignInScreen() {
   const handleSSO = async (strategy: SSOStrategy) => {
     posthog.capture("sign_in_sso_started", { strategy });
     setAuthError("");
+
+    // WEB: redirect flow — a página atual navega pro provedor OAuth e o
+    // Clerk volta pra /sso-callback. Sem popup => sem bug de COOP.
+    if (Platform.OS === "web") {
+      try {
+        // O tipo de @clerk/expo (SignInFutureResource) não declara
+        // authenticateWithRedirect, mas no WEB o runtime delega pro clerk-js
+        // que TEM o método. Cast é seguro porque esse branch só roda no web.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (signIn as any)?.authenticateWithRedirect({
+          strategy,
+          redirectUrl: "/sso-callback",
+          redirectUrlComplete: "/",
+        });
+        // navegação acontece — código abaixo nunca roda no web
+        return;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Unknown SSO redirect error";
+        console.error("SSO redirect failed", err);
+        posthog.capture("sign_in_sso_failed", { strategy, error: message });
+        setAuthError("Não consegui continuar com login social. Tente de novo.");
+        return;
+      }
+    }
+
+    // NATIVE: browser session via startSSOFlow (funciona normal no celular)
     try {
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy,
