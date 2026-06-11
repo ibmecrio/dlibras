@@ -66,9 +66,39 @@ cmd_full() {
   echo "✅ Done."
 }
 
+cmd_web() {
+  echo "🔨 Build local Expo web export..."
+  rm -rf dist/
+  SECRET="${EXPO_PUBLIC_PROXY_SECRET:-$(grep DLIBRAS_PROXY_SECRET $HOME/.config/dlibras/prod-secrets.env | cut -d= -f2)}"
+  CLERK_PK="${EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY:-$(grep ^EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY .env 2>/dev/null | cut -d= -f2)}"
+  EXPO_PUBLIC_LIBRAS_API_URL="${EXPO_PUBLIC_LIBRAS_API_URL:-http://$VPS_HOST:8801}" \
+  EXPO_PUBLIC_USE_PROXY=true \
+  EXPO_PUBLIC_PROXY_SECRET="$SECRET" \
+  EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY="$CLERK_PK" \
+    pnpm exec expo export -p web 2>&1 | tail -4
+
+  echo "📤 Rsync dist/ → VPS:/opt/dlibras/web-dist/"
+  if [ -f "$VPS_SSH_KEY" ]; then
+    rsync -az --delete -e "ssh -i $VPS_SSH_KEY -p $VPS_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
+      dist/ $VPS_USER@$VPS_HOST:$REMOTE_DIR/web-dist/
+  else
+    SSHPASS="$VPS_PASS" rsync -az --delete -e "sshpass -e ssh -p $VPS_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" \
+      dist/ $VPS_USER@$VPS_HOST:$REMOTE_DIR/web-dist/
+  fi
+
+  echo "🔄 Restart web container"
+  eval "$SSH 'cd $REMOTE_DIR && docker compose restart web 2>&1 | tail -3'"
+
+  echo "🩺 Health"
+  sleep 3
+  eval "$SSH 'curl -sk -o /dev/null -w \"HTTP %{http_code}\\n\" http://localhost:8802/'"
+  echo "✅ Web atualizado."
+}
+
 case "${1:-quick}" in
   --status)  cmd_status ;;
   --logs)    cmd_logs ;;
   --full)    cmd_full ;;
+  --web)     cmd_web ;;
   --quick|*) cmd_quick ;;
 esac
