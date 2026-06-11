@@ -395,7 +395,13 @@ def predict(req: PredictRequest) -> PredictResponse:
             latency_ms=(time.perf_counter() - start) * 1000.0,
         )
 
-    features = extract.extract_relative_coords(detection)
+    # extract_relative_coords agora retorna (features_66, wrist_position) e exige
+    # time_since_last_frame_ms + last_wrist_position pra calcular velocity da
+    # mão (necessário pras letras J/Z em movimento). Pra reqs HTTP isoladas
+    # passamos 0/None — velocity sai [0,0,0]. Modelos atuais foram treinados
+    # com 63 features (só landmarks, sem velocity) então cortamos as 3 extras.
+    features_full, _wrist = extract.extract_relative_coords(detection, 0, None)
+    features = features_full[:63]
     model_name = (req.model or "knn").lower()
     if model_name == "ensemble":
         letter, confidence = _classify_ensemble(features)
@@ -418,7 +424,8 @@ def predict_landmarks(req: LandmarksRequest) -> PredictResponse:
     points, skipping the image round-trip entirely."""
     start = time.perf_counter()
     detection = _Detection(req.landmarks, req.handedness)
-    features = extract.extract_relative_coords(detection)
+    features_full, _wrist = extract.extract_relative_coords(detection, 0, None)
+    features = features_full[:63]  # modelos treinados sem velocity
     letter, confidence = _classify(features)
     match = letter.upper() == req.target.upper() if req.target else None
     return PredictResponse(
@@ -670,7 +677,8 @@ async def predict_ws(websocket: WebSocket) -> None:
                         "latency_ms": (time.perf_counter() - start) * 1000.0,
                     })
                     continue
-                features = extract.extract_relative_coords(detection)
+                features_full, _wrist = extract.extract_relative_coords(detection, 0, None)
+                features = features_full[:63]  # modelos treinados sem velocity
                 if model_name == "ensemble":
                     letter, confidence = _classify_ensemble(features)
                 else:
