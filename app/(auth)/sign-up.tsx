@@ -1,4 +1,4 @@
-import { useSignUp, useSSO } from "@clerk/expo";
+import { useClerk, useSignUp, useSSO } from "@clerk/expo";
 import { AntDesign, FontAwesome, Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
 import { type Href, router } from "expo-router";
@@ -26,16 +26,20 @@ import { posthog } from "@/lib/posthog";
 
 WebBrowser.maybeCompleteAuthSession();
 
-// Em web, COOP (Cross-Origin-Opener-Policy) bloqueia o popup de OAuth do
-// Clerk — startSSOFlow trava porque não detecta `window.closed`. No celular
-// funciona normalmente. Escondemos os botões sociais no web pra não confundir.
-const ssoAvailable = Platform.OS !== "web";
+// SSO habilitado em todas as plataformas. No web usamos redirect flow via
+// useClerk().client.signUp.authenticateWithRedirect — página inteira navega
+// pro provedor e volta, sem popup => sem bug de COOP (window.closed bloqueado).
+const ssoAvailable = true;
 
 type SSOStrategy = "oauth_google" | "oauth_facebook" | "oauth_apple";
 
 export default function SignUpScreen() {
   const { signUp, errors, fetchStatus } = useSignUp();
   const { startSSOFlow } = useSSO();
+  // useClerk dá acesso ao `client.signUp` (SignUpResource do clerk-js) que
+  // expõe `authenticateWithRedirect` — método ausente no signUp future do
+  // useSignUp(). Usado só no web pra evitar popup + bug de COOP.
+  const clerk = useClerk();
   const c = useThemeColors();
   const styles = useMemo(() => createStyles(c), [c]);
 
@@ -101,6 +105,33 @@ export default function SignUpScreen() {
   const handleSSO = async (strategy: SSOStrategy) => {
     posthog.capture("sign_up_sso_started", { strategy });
     setAuthError("");
+
+    // WEB: redirect flow via clerk.client.signUp (mesmo método que sign-in).
+    if (Platform.OS === "web") {
+      try {
+        const clientSignUp = clerk?.client?.signUp;
+        if (!clientSignUp?.authenticateWithRedirect) {
+          throw new Error(
+            "Clerk client ainda carregando — recarregue a página e tente de novo.",
+          );
+        }
+        await clientSignUp.authenticateWithRedirect({
+          strategy,
+          redirectUrl: "/sso-callback",
+          redirectUrlComplete: "/",
+        });
+        return;
+      } catch (err) {
+        const message =
+          err instanceof Error ? err.message : "Unknown SSO redirect error";
+        console.error("SSO redirect failed", err);
+        posthog.capture("sign_up_sso_failed", { strategy, error: message });
+        setAuthError("Não consegui continuar com cadastro social. Tente de novo.");
+        return;
+      }
+    }
+
+    // NATIVE: browser session via startSSOFlow.
     try {
       const { createdSessionId, setActive } = await startSSOFlow({
         strategy,

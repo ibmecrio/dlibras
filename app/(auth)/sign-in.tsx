@@ -1,4 +1,4 @@
-import { useSignIn, useSSO } from "@clerk/expo";
+import { useClerk, useSignIn, useSSO } from "@clerk/expo";
 import { AntDesign, FontAwesome, Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
 import { type Href, router } from "expo-router";
@@ -47,6 +47,10 @@ const ADMIN_PASSWORD_DEV = "DLibras@Anderson2026!Seguro";
 export default function SignInScreen() {
   const { signIn, errors, fetchStatus } = useSignIn();
   const { startSSOFlow } = useSSO();
+  // useClerk dá acesso ao `client.signIn` (SignInResource do clerk-js) que
+  // expõe `authenticateWithRedirect` — método ausente no signIn future do
+  // useSignIn(). Usado só no web pra evitar popup + bug de COOP.
+  const clerk = useClerk();
   const c = useThemeColors();
   const styles = useMemo(() => createStyles(c), [c]);
   const setDevBypassAuth = useLearningStore((s) => s.setDevBypassAuth);
@@ -183,15 +187,20 @@ export default function SignInScreen() {
     posthog.capture("sign_in_sso_started", { strategy });
     setAuthError("");
 
-    // WEB: redirect flow — a página atual navega pro provedor OAuth e o
-    // Clerk volta pra /sso-callback. Sem popup => sem bug de COOP.
+    // WEB: redirect flow via clerk.client.signIn — a página inteira navega
+    // pro provedor OAuth e volta pra /sso-callback. Sem popup => sem bug
+    // de COOP (window.closed bloqueado). `useSignIn().signIn` é a Future API
+    // e NÃO tem authenticateWithRedirect; o método mora no SignInResource
+    // do clerk-js, exposto via `useClerk().client.signIn`.
     if (Platform.OS === "web") {
       try {
-        // O tipo de @clerk/expo (SignInFutureResource) não declara
-        // authenticateWithRedirect, mas no WEB o runtime delega pro clerk-js
-        // que TEM o método. Cast é seguro porque esse branch só roda no web.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (signIn as any)?.authenticateWithRedirect({
+        const clientSignIn = clerk?.client?.signIn;
+        if (!clientSignIn?.authenticateWithRedirect) {
+          throw new Error(
+            "Clerk client ainda carregando — recarregue a página e tente de novo.",
+          );
+        }
+        await clientSignIn.authenticateWithRedirect({
           strategy,
           redirectUrl: "/sso-callback",
           redirectUrlComplete: "/",
