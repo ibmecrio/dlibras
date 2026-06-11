@@ -12,7 +12,12 @@ WORKDIR /app
 # Deps Python — separado pra cache layer
 COPY libras-vision/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir 'fastapi==0.115.0' 'uvicorn[standard]==0.30.6' 'python-multipart==0.0.9'
+    pip install --no-cache-dir \
+      'fastapi==0.115.0' \
+      'uvicorn[standard]==0.30.6' \
+      'python-multipart==0.0.9' \
+      'slowapi==0.1.9' \
+      'psycopg[binary]==3.2.3'
 
 # Código + modelos
 COPY libras-vision/api_server.py .

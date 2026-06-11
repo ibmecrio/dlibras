@@ -6,18 +6,42 @@ services:
     container_name: dlibras-api
     restart: unless-stopped
     ports:
-      - "8801:8001"  # 8001 já ocupado por outro projeto na VPS; uso 8801 externamente
+      - "8801:8001"
     env_file:
       - .env
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
       - dlibras-net
-      - nginx-proxy-manager_default  # NPM precisa estar nessa network pra rotear
+      - nginx-proxy-manager_default
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8001/health"]
       interval: 30s
       timeout: 10s
       start_period: 30s
       retries: 3
+
+  db:
+    image: postgres:16-alpine
+    container_name: dlibras-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dlibras}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-dlibras}
+    volumes:
+      - dlibras-dbdata:/var/lib/postgresql/data
+    networks:
+      - dlibras-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dlibras} -d ${POSTGRES_DB:-dlibras}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  dlibras-dbdata:
 
 networks:
   dlibras-net:

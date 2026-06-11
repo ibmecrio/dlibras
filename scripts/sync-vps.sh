@@ -17,14 +17,21 @@ VPS_USER="${VPS_USER:-root}"
 VPS_PASS="${VPS_PASS:-Olivina@2026}"
 REMOTE_DIR="${REMOTE_DIR:-/opt/dlibras}"
 
-if ! command -v sshpass >/dev/null 2>&1; then
-  echo "❌ sshpass não instalado. macOS: brew install sshpass"
-  exit 1
-fi
+VPS_SSH_KEY="${VPS_SSH_KEY:-$HOME/.config/dlibras/ssh/dlibras_vps}"
 
-SSHPASS_CMD="SSHPASS='$VPS_PASS' sshpass -e"
-SSH="$SSHPASS_CMD ssh -p $VPS_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $VPS_USER@$VPS_HOST"
-SCP="$SSHPASS_CMD scp -P $VPS_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+# Prefere SSH key se existir; fallback pra sshpass com senha
+if [ -f "$VPS_SSH_KEY" ]; then
+  SSH="ssh -i $VPS_SSH_KEY -p $VPS_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o IdentitiesOnly=yes $VPS_USER@$VPS_HOST"
+  SCP="scp -i $VPS_SSH_KEY -P $VPS_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+else
+  if ! command -v sshpass >/dev/null 2>&1; then
+    echo "❌ sshpass não instalado. macOS: brew install sshpass"
+    exit 1
+  fi
+  SSHPASS_CMD="SSHPASS='$VPS_PASS' sshpass -e"
+  SSH="$SSHPASS_CMD ssh -p $VPS_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null $VPS_USER@$VPS_HOST"
+  SCP="$SSHPASS_CMD scp -P $VPS_PORT -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+fi
 
 cmd_status() {
   eval "$SSH 'cd $REMOTE_DIR && docker compose ps && echo --- && curl -s http://localhost:8801/health'"

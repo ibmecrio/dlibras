@@ -228,7 +228,7 @@ class MotionResponse(BaseModel):
     latency_ms: float
 
 
-app = FastAPI(title="DLibras Vision API", version="0.2.0")
+app = FastAPI(title="DLibras Vision API", version="0.3.0")
 
 # CORS — em dev aceita tudo, em prod usa DLIBRAS_ALLOWED_ORIGINS
 # (comma-separated). Ex.: "https://dlibras.app,https://dlibras.vercel.app"
@@ -242,6 +242,23 @@ app.add_middleware(
     allow_headers=["*"],
     allow_credentials=False,
 )
+
+# Rate limiting — opcional (slowapi). Configurado via env DLIBRAS_RATE_LIMIT_*.
+try:
+    from slowapi import Limiter, _rate_limit_exceeded_handler  # type: ignore
+    from slowapi.errors import RateLimitExceeded  # type: ignore
+    from slowapi.util import get_remote_address  # type: ignore
+    _limiter = Limiter(key_func=get_remote_address)
+    app.state.limiter = _limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    _RL_PREDICT = _os.environ.get("DLIBRAS_RATE_LIMIT_PREDICT", "100/minute")
+    _RL_PROXY = _os.environ.get("DLIBRAS_RATE_LIMIT_PROXY", "10/minute")
+    print(f"[api] rate limit: predict={_RL_PREDICT}, proxy={_RL_PROXY}")
+except ImportError:
+    _limiter = None
+    _RL_PREDICT = ""
+    _RL_PROXY = ""
+    print("[api] slowapi not installed — rate limit off (ok for dev)")
 
 
 def _decode_image(b64: str) -> np.ndarray:
@@ -305,6 +322,59 @@ def health() -> dict:
             "status": motion_status,
             "labels": motion_labels,
             "target_frames": motion_target_frames if motion_status == "loaded" else None,
+        },
+    }
+
+
+@app.get("/health/v2")
+def health_v2() -> dict:
+    """Health check estendido: subsistemas, latencia DB, status de proxies."""
+    import time as _time
+    db_status: dict = {"configured": False}
+    db_url = _os.environ.get("DATABASE_URL", "")
+    if db_url:
+        db_status["configured"] = True
+        try:
+            import psycopg  # type: ignore
+            _t0 = _time.perf_counter()
+            with psycopg.connect(db_url, connect_timeout=3) as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SELECT 1")
+                    cur.fetchone()
+            db_status["ok"] = True
+            db_status["latency_ms"] = round((_time.perf_counter() - _t0) * 1000, 2)
+        except ImportError:
+            db_status["ok"] = None
+            db_status["note"] = "psycopg not installed"
+        except Exception as e:
+            db_status["ok"] = False
+            db_status["error"] = str(e)[:120]
+
+    return {
+        "status": "ok",
+        "version": "0.3.0",
+        "timestamp": _time.time(),
+        "subsystems": {
+            "static_models": {
+                "count": len(ALL_MODELS),
+                "available": list(ALL_MODELS.keys()),
+            },
+            "motion_model": {
+                "status": motion_status,
+                "loaded": motion_status == "loaded",
+            },
+            "proxies": {
+                "anthropic": bool(_os.environ.get("ANTHROPIC_API_KEY")),
+                "elevenlabs": bool(_os.environ.get("ELEVENLABS_API_KEY")),
+                "assemblyai": bool(_os.environ.get("ASSEMBLYAI_API_KEY")),
+            },
+            "rate_limit": {
+                "enabled": _limiter is not None,
+                "predict": _RL_PREDICT or "off",
+                "proxy": _RL_PROXY or "off",
+            },
+            "database": db_status,
+            "cors_origins": _origins if _origins != ["*"] else ["any (dev)"],
         },
     }
 
