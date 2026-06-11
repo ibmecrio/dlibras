@@ -22,6 +22,26 @@ services:
       start_period: 30s
       retries: 3
 
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    container_name: dlibras-web
+    restart: unless-stopped
+    ports:
+      - "8802:80"
+    volumes:
+      # dist/ vem do host (rsync local → /opt/dlibras/web-dist/)
+      - ./web-dist:/usr/share/nginx/html:ro
+    networks:
+      - dlibras-net
+      - nginx-proxy-manager_default
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
   db:
     image: postgres:16-alpine
     container_name: dlibras-db
@@ -39,11 +59,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
-  # web service opcional — adicionar quando repo for tornado publico OU
-  # quando deploy key SSH for adicionada no GitHub. Por enquanto o web
-  # vive na Vercel (gratis + CDN global + HTTPS automatico).
-  # Veja server/Dockerfile.web pra a config quando quiser ativar.
 
 volumes:
   dlibras-dbdata:
