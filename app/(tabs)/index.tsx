@@ -492,16 +492,20 @@ function createStyles(c: ThemeColors) {
       flexDirection: "row",
       backgroundColor: c.primary.purple,
       borderRadius: 20,
-      height: 160,
+      // minHeight em vez de height: deixa o card crescer se o título quebrar
+      // em 2 linhas, evitando que o botão "Começar/Continuar" fique colado
+      // na borda inferior ou cortado pelo overflow hidden em mobiles estreitos.
+      minHeight: 168,
       marginBottom: 24,
       overflow: "hidden",
     },
     continueText: {
       flex: 1,
-      paddingVertical: 20,
+      paddingVertical: 18,
       paddingLeft: 20,
       paddingRight: 8,
       justifyContent: "space-between",
+      gap: 12,
     },
     continueKicker: {
       fontFamily: "Poppins-Regular",
@@ -536,7 +540,9 @@ function createStyles(c: ThemeColors) {
       fontSize: 13,
       color: c.primary.purple,
     },
-    palace: { width: 130, height: 160 },
+    // Palace menor (116 vs 130) libera ~14px pro bloco de texto à esquerda em
+    // mobiles estreitos (iPhone SE ~320px), dando folga pro botão Começar.
+    palace: { width: 116, height: 168 },
 
     // Plan
     planHeaderRow: {
