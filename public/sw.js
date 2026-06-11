@@ -7,7 +7,7 @@
 //   - APIs: nao intercepta, browser faz network normal
 //   - POST/PUT/DELETE: nao intercepta
 
-const CACHE_VERSION = "dlibras-v2";
+const CACHE_VERSION = "dlibras-v3";
 const STATIC_ASSETS = [
   "/",
   "/manifest.webmanifest",
@@ -40,6 +40,7 @@ self.addEventListener("activate", (event) => {
 
 function isApiRequest(url) {
   return (
+    url.pathname.startsWith("/dlibras-api/") ||
     url.pathname.startsWith("/predict") ||
     url.pathname.startsWith("/api/") ||
     url.pathname.startsWith("/health") ||
