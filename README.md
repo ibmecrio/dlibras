@@ -10,8 +10,6 @@ que conversa em português brasileiro com voz neural natural.
 
 ---
 
----
-
 |  Mobile |  Web (PWA) |  Modo Professor |  Voz Natural |
 |:---------:|:------------:|:-----------------:|:--------------:|
 | Expo Go / EAS Build | Instalável no Chrome/Safari iOS | Bia ensina cada letra | Claude + ElevenLabs + AssemblyAI |
@@ -20,10 +18,7 @@ que conversa em português brasileiro com voz neural natural.
 
 ---
 
-
----
-
-## Índice
+## 📑 Índice
 
 1. [ DLibras]((#-dlibras))
 2. [ Demo & Screenshots]((#-demo--screenshots))
@@ -41,16 +36,14 @@ que conversa em português brasileiro com voz neural natural.
 14. [ Deploy]((#-deploy))
 15. [ APIs — referência completa]((#-apis--referência-completa))
 16. [ Glossário]((#-glossário-ordem-alfabética))
-17. [ TCC — Trabalho de Conclusão de Curso]((#-tcc--trabalho-de-conclusão-de-curso))
+17. [ projeto — projeto academico]((#-projeto--trabalho-de-conclusão-de-curso))
 18. [ Roadmap & Trabalhos futuros]((#-roadmap--trabalhos-futuros))
 19. [ Como contribuir]((#-como-contribuir))
 20. [ Licença]((#-licença))
-21. [ Agradecimentos]((#-agradecimentos))
-22. [ Contato]((#-contato))
 
 ---
 
-## Demo & Screenshots
+## 📸 Demo & Screenshots
 
 >  **Vídeo demo**: [`youtu.be/...`](https://youtu.be/) _(adicionar)_
 
@@ -58,13 +51,13 @@ que conversa em português brasileiro com voz neural natural.
 |:---------------------:|:-------------:|:------------------------:|
 | _(screenshot)_        | _(screenshot)_ | _(screenshot)_           |
 
-| Quiz de revisão | Heatmap A-Z | Tela "Sobre" / TCC |
+| Quiz de revisão | Heatmap A-Z | Tela "Sobre" / projeto |
 |:---------------:|:-----------:|:------------------:|
 | _(screenshot)_  | _(screenshot)_ | _(screenshot)_  |
 
 ---
 
-## Por que o DLibras existe
+## 💡 Por que o DLibras existe
 
 A Língua Brasileira de Sinais (Libras) é a **segunda língua oficial do Brasil** (Lei nº 10.436/2002),
 falada por aproximadamente **10 milhões de brasileiros** com algum grau de deficiência auditiva
@@ -97,14 +90,14 @@ falada por aproximadamente **10 milhões de brasileiros** com algum grau de defi
 
 ---
 
-## Quick Start
+## ⚡ Quick Start
 
 > **Pré-requisitos**: Node 20+, pnpm 10+, Python 3.10–3.13 (não 3.14), Expo Go no celular.
 
 ```bash
 # 1. Clone os DOIS repositórios (front + back)
-git clone https://github.com/ibmecrio/dlibras.git
-git clone https://github.com/ibmecrio/Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition.git libras-vision
+git clone https://github.com/instituicao academicario/dlibras.git
+git clone https://github.com/instituicao academicario/Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition.git libras-vision
 
 # 2. Frontend
 cd dlibras
@@ -132,7 +125,7 @@ pnpm exec expo start --host lan --clear --web
 
 ---
 
-# Arquitetura
+# 🏗️ Arquitetura
 
 ## Visao geral do sistema
 
@@ -140,7 +133,7 @@ DLibras roda em uma arquitetura de tres camadas costuradas em torno do paradigma
 
 A **API de visao** (`Digital-Inclusion-…-Libras-Recognition/api_server.py`) e um servico FastAPI standalone em Python 3.11 que combina o **MediaPipe HandLandmarker** (extrai os 21 pontos da mao por frame) com um conjunto de classificadores scikit-learn (KNN, SVM, MLP, RandomForest, LogReg) carregados de `.joblib`. Ela expoe tres modos de inferencia: REST `POST /predict` (overhead alto por frame, util para fallback), WebSocket `/predict-ws` (modo real-time preferido) e `POST /predict-landmarks` (fast path quando o client ja extraiu landmarks via `@mediapipe/tasks-vision`). Para sinais com movimento (J/Z) existe uma rota dedicada `POST /predict-motion-v2` com fallback transparente entre LSTM PyTorch (se `models/motion_lstm.pt` estiver presente) e heuristica de trajetoria.
 
-O **modo professor** ("voice mode" em `app/lesson/_voice-mode.tsx`) compoe esse esqueleto com tres provedores externos de IA: **Anthropic Claude Haiku 4.5** (texto da Bia em pt-BR via `lib/claude.ts`), **ElevenLabs Multilingual v2** (TTS neural feminino via `lib/voice.ts`) e **AssemblyAI** (STT pt-BR via `lib/stt.ts`). Em **dev**, as keys vivem prefixadas como `EXPO_PUBLIC_*` no bundle do client — pratico para TCC, inseguro para producao publica. Em **prod**, o cliente liga `EXPO_PUBLIC_USE_PROXY=true` e todas as chamadas a Anthropic/ElevenLabs/AssemblyAI passam pelos endpoints `/api/anthropic/messages`, `/api/elevenlabs/tts` e `/api/assemblyai/{rest}` do proprio FastAPI, que injeta as keys server-side e exige `Bearer ${DLIBRAS_PROXY_SECRET}`. O **Postgres 16** roda apenas no compose de prod e e reservado para features futuras (leaderboard, sync de progresso entre devices) — hoje todo o estado mora no AsyncStorage do cliente.
+O **modo professor** ("voice mode" em `app/lesson/_voice-mode.tsx`) compoe esse esqueleto com tres provedores externos de IA: **Anthropic Claude Haiku 4.5** (texto da Bia em pt-BR via `lib/claude.ts`), **ElevenLabs Multilingual v2** (TTS neural feminino via `lib/voice.ts`) e **AssemblyAI** (STT pt-BR via `lib/stt.ts`). Em **dev**, as keys vivem prefixadas como `EXPO_PUBLIC_*` no bundle do client — pratico para projetos academicos, inseguro para producao publica. Em **prod**, o cliente liga `EXPO_PUBLIC_USE_PROXY=true` e todas as chamadas a Anthropic/ElevenLabs/AssemblyAI passam pelos endpoints `/api/anthropic/messages`, `/api/elevenlabs/tts` e `/api/assemblyai/{rest}` do proprio FastAPI, que injeta as keys server-side e exige `Bearer ${DLIBRAS_PROXY_SECRET}`. O **Postgres 16** roda apenas no compose de prod e e reservado para features futuras (leaderboard, sync de progresso entre devices) — hoje todo o estado mora no AsyncStorage do cliente.
 
 ## Diagrama de contexto (C4 nivel 1)
 
@@ -409,7 +402,7 @@ erDiagram
         int streak "DERIVADO de xpHistory"
         int hearts "0-5, regen 30min"
         int heartsUpdatedAt "ms epoch"
-        bool unlimitedHearts "demo/TCC override"
+        bool unlimitedHearts "demo/projeto override"
         string displayNameOverride "null=usa Clerk firstName"
         string avatarEmoji "default fox emoji"
         string themeOverride "system|light|dark"
@@ -597,7 +590,7 @@ O `nginx.conf` faz tres roteamentos: `location /` -> `web`, `location /api/*` e 
 
 - **Status:** Accepted (v0.1)
 - **Context:** O modelo de visao (MediaPipe + sklearn) e Python-only. Hospedar em Next.js API routes exigiria FFI ou subprocess, perdendo o latency budget de ~80ms por frame que precisamos para 3.5fps de inferencia. Expo Router tem `+api.ts` (Server Functions em Metro Node runtime), mas tambem nao roda Python.
-- **Decision:** Servico FastAPI separado em `Digital-Inclusion-…-Libras-Recognition/api_server.py` rodando em uvicorn + Python 3.11. Reuso da pipeline MediaPipe + KNN do TCC. Tres rotas de predicao (HTTP, WebSocket, landmarks-only) + tres proxies de IA + healthcheck.
+- **Decision:** Servico FastAPI separado em `Digital-Inclusion-…-Libras-Recognition/api_server.py` rodando em uvicorn + Python 3.11. Reuso da pipeline MediaPipe + KNN do projeto. Tres rotas de predicao (HTTP, WebSocket, landmarks-only) + tres proxies de IA + healthcheck.
 - **Consequences:** Dois processos para rodar em dev (`pnpm libras:api` + `pnpm start`). Em prod, dois containers Docker. Beneficio: o modelo cabe em ~700MB de RAM e roda em qualquer VPS de $5/mes (testado em Hetzner CPX21).
 
 ### ADR 5 — Real-time via WebSocket (vs HTTP polling)
@@ -617,7 +610,7 @@ O `nginx.conf` faz tres roteamentos: `location /` -> `web`, `location /api/*` e 
 ### ADR 7 — Server-side IA key proxy (vs client-side keys) para prod
 
 - **Status:** Implemented, opt-in via env (v0.3)
-- **Context:** Em dev as keys ficam prefixadas `EXPO_PUBLIC_ANTHROPIC_API_KEY` e vao para o bundle JS — qualquer pessoa que abrir o devtools/decompilar o APK ve as keys. Inaceitavel em producao publica, mas o flow de TCC nao justifica setup de OAuth server-side completo.
+- **Context:** Em dev as keys ficam prefixadas `EXPO_PUBLIC_ANTHROPIC_API_KEY` e vao para o bundle JS — qualquer pessoa que abrir o devtools/decompilar o APK ve as keys. Inaceitavel em producao publica, mas o flow academico nao justifica setup de OAuth server-side completo.
 - **Decision:** Tres rotas proxy no proprio FastAPI: `POST /api/anthropic/messages`, `POST /api/elevenlabs/tts` e `ANY /api/assemblyai/{rest}`. Client liga `EXPO_PUBLIC_USE_PROXY=true` + `EXPO_PUBLIC_PROXY_SECRET=...`. Server valida `Authorization: Bearer ${DLIBRAS_PROXY_SECRET}` e injeta as keys reais de `os.environ` antes de chamar o upstream.
 - **Consequences:** Em prod nenhuma key de IA vai para o bundle. Em troca, e um secret compartilhado simples (nao JWT por user) — futuro: validar `session.id` do Clerk em vez do bearer estatico. Sem rate-limit por user ainda, o que e exposicao a abuse se o secret vazar.
 
@@ -626,7 +619,7 @@ O `nginx.conf` faz tres roteamentos: `location /` -> `web`, `location /api/*` e 
 - **Status:** Accepted (v0.3)
 - **Context:** Web Speech API (`SpeechRecognition`) e gratis e roda no browser, mas tem cobertura inconsistente: Chrome desktop OK, Safari iOS tem support quebrado, Firefox nao tem nada. Em mobile nativo nao existe equivalente direto sem usar `expo-speech-recognition` (third-party, betinha).
 - **Decision:** `lib/stt.ts` com handle unificado (`RecordingHandle` discriminated union) e dois implementadores: web usa `navigator.mediaDevices.getUserMedia` + `MediaRecorder` com timeslice 100ms; native usa `expo-av Audio.Recording` com `HIGH_QUALITY` preset. Os dois gravam para Blob/m4a e enviam para AssemblyAI `/v2/upload` -> `/v2/transcript` (polling a cada 800ms, timeout 48s).
-- **Consequences:** Funciona em todos os browsers modernos e em iOS/Android sem mudar codigo de UI. Custo: cada minuto de audio gasta ~$0.0063 da AssemblyAI ($0.37/h). Para o TCC, free tier 5h/mes e suficiente. Em dev, mostra erro especifico se `isSecureContext` for `false` (LAN IP no browser) com botao "Abrir em localhost".
+- **Consequences:** Funciona em todos os browsers modernos e em iOS/Android sem mudar codigo de UI. Custo: cada minuto de audio gasta ~$0.0063 da AssemblyAI ($0.37/h). para projetos academicos, free tier 5h/mes e suficiente. Em dev, mostra erro especifico se `isSecureContext` for `false` (LAN IP no browser) com botao "Abrir em localhost".
 
 ## Resumo rapido das fontes
 
@@ -647,9 +640,9 @@ O `nginx.conf` faz tres roteamentos: `location /` -> `web`, `location /api/*` e 
 | Auth wrapper (Clerk + demo) | `lib/auth.ts` |
 | Estado persistido | `store/learningStore.ts` |
 | Backend de visao | `Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition/api_server.py` |
-# Stack tecnológica
+# 🧱 Stack tecnológica
 
-A DLibras é um monorepo prático que combina três cabeças bem distintas: um app Expo (mobile + web), uma API FastAPI com visão computacional clássica e uma camada de integrações de IA (Claude, ElevenLabs, AssemblyAI). Cada decisão de stack foi feita pensando em prazo de TCC, custo (free tier sempre que possível) e a possibilidade de rodar o app inteiro em modo demo sem nenhuma chave.
+A DLibras é um monorepo prático que combina três cabeças bem distintas: um app Expo (mobile + web), uma API FastAPI com visão computacional clássica e uma camada de integrações de IA (Claude, ElevenLabs, AssemblyAI). Cada decisão de stack foi feita pensando em prazo academico, custo (free tier sempre que possível) e a possibilidade de rodar o app inteiro em modo demo sem nenhuma chave.
 
 As tabelas abaixo são organizadas por camada — versões extraídas direto do `package.json` e `requirements.txt`.
 
@@ -714,7 +707,7 @@ As tabelas abaixo são organizadas por camada — versões extraídas direto do 
 | Tecnologia | Versão / Modelo | Propósito | Por que escolhemos | Alternativas consideradas |
 |---|---|---|---|---|
 | **Anthropic Claude** | `claude-haiku-4-5-20251001` | LLM da Bia (explicações, perguntas) | Haiku 4.5 custa ~US$0.80/$4 por 1M tokens IO (~5× mais barato que Sonnet 4.6); latência baixa pra UX de voz | OpenAI GPT-4o (mais caro); Gemini Flash (limites estranhos); on-device LLM (peso > app) |
-| **ElevenLabs TTS** | `eleven_multilingual_v2` (voz `Lily` ID `pFZP5JQG7iQjIQuC4Bku`) | Voz neural da Bia | Voz pt-BR de qualidade ChatGPT; free tier 10k chars/mês cobre TCC | OpenAI TTS (mais caro/req); Azure Speech (setup pesado); expo-speech (fallback robótico) |
+| **ElevenLabs TTS** | `eleven_multilingual_v2` (voz `Lily` ID `pFZP5JQG7iQjIQuC4Bku`) | Voz neural da Bia | Voz pt-BR de qualidade ChatGPT; free tier 10k chars/mês cobre projeto | OpenAI TTS (mais caro/req); Azure Speech (setup pesado); expo-speech (fallback robótico) |
 | **OpenAI TTS** | `tts-1-hd` voz `nova` | Fallback se ElevenLabs estourar quota | Same engine do ChatGPT; aceita PT-BR | — |
 | **AssemblyAI** | endpoint `v2` modelo `best` | STT em PT-BR | Suporta pt nativamente; latência ~3-5s pra clipes curtos; tier gratuito | Whisper API (mais caro); Web Speech API (só web, sem pt em todos browsers) |
 
@@ -738,11 +731,11 @@ As tabelas abaixo são organizadas por camada — versões extraídas direto do 
 
 ---
 
-# Bibliotecas: deep dive por categoria
+# 📚 Bibliotecas
 
 ## Visão computacional
 
-A pipeline de reconhecimento de Libras combina **detecção de landmarks** (MediaPipe) com **classificação clássica** (scikit-learn). A escolha é deliberada — para um TCC, treinar um CNN do zero seria overengineering quando KNN sobre 42 features (21 landmarks × x,y) já bate ~95% de acurácia no dataset estático.
+A pipeline de reconhecimento de Libras combina **detecção de landmarks** (MediaPipe) com **classificação clássica** (scikit-learn). A escolha é deliberada — para um projeto, treinar um CNN do zero seria overengineering quando KNN sobre 42 features (21 landmarks × x,y) já bate ~95% de acurácia no dataset estático.
 
 ### MediaPipe HandLandmarker
 
@@ -806,7 +799,7 @@ Para J e Z (que exigem traçado), a heurística atual em `_classify_motion()` ol
 
 ### Por que Haiku 4.5
 
-Cada turno da Bia gera ~280 tokens output em média. A US$4 / 1M = ~US$0.001 por turno. Uma sessão típica de TCC (10 turnos × 5 alunos demonstrando) custa < 6 centavos. Para Sonnet 4.6 seria ~5× mais.
+Cada turno da Bia gera ~280 tokens output em média. A US$4 / 1M = ~US$0.001 por turno. Uma sessão típica academico (10 turnos × 5 alunos demonstrando) custa < 6 centavos. Para Sonnet 4.6 seria ~5× mais.
 
 ### Cache LRU no TTS
 
@@ -1016,7 +1009,7 @@ Interpolação simples `{name}` via regex. Fallback em cascata: `locale → pt-B
 
 ---
 
-# Estrutura do projeto
+# 🗂️ Estrutura do projeto
 
 ```
 react-native-lingua/
@@ -1025,7 +1018,7 @@ react-native-lingua/
 │   ├── +html.tsx                 # HTML wrapper do web (PWA tags, theme color)
 │   ├── index.tsx                 # Splash + decide rota inicial
 │   ├── onboarding.tsx            # Tutorial de 1ª abertura
-│   ├── about.tsx                 # Sobre o projeto (TCC info, links)
+│   ├── about.tsx                 # Sobre o projeto (projeto info, links)
 │   ├── ask-bia.tsx               # Chat de texto com a Bia (histórico Zustand)
 │   ├── quiz.tsx                  # Quiz multiple-choice de revisão
 │   ├── libras-demo.tsx           # Câmera "livre" — qualquer letra
@@ -1064,7 +1057,7 @@ react-native-lingua/
 │   ├── MascotBubble.tsx          # Balão de fala do mascote
 │   ├── OfflineBanner.tsx         # Banner global "Sem conexão"
 │   ├── PathNode.tsx              # Nó do caminho de unidades estilo Duolingo
-│   ├── SdgBanner.tsx             # Banner ODS 4/10 (TCC requirement)
+│   ├── SdgBanner.tsx             # Banner ODS 4/10 (projeto requirement)
 │   ├── SocialButton.tsx          # Botão Google/Apple sign-in
 │   ├── StreakWarning.tsx         # Banner "Sua streak está em risco"
 │   ├── TabBar.tsx                # Tab bar custom com chip roxo
@@ -1149,7 +1142,7 @@ react-native-lingua/
 
 ---
 
-# Walkthrough do código (arquivos chave)
+# 🔬 Walkthrough do código
 
 ## 1. `app/_layout.tsx`
 
@@ -1494,7 +1487,7 @@ const styles = useMemo(() => createStyles(c), [c]);
 ```
 
 O export `colors` (sempre light) é mantido por retro-compat — telas que ainda não migraram pra `useThemeColors()` seguem funcionando, só não respeitam dark mode.
-# Features (catálogo completo)
+# 🎮 Features
 
 DLibras é um app de ensino de Língua Brasileira de Sinais (Libras) com câmera, reconhecimento por IA e gamificação no estilo Duolingo. Esta seção lista todas as features visíveis ao usuário, agrupadas por área. Tudo é honesto: o que está pronto, o que está mockado e o que exige configuração externa.
 
@@ -1658,7 +1651,7 @@ Tudo na tela `/profile`:
 | Botão "Testar notificação" | Dispara uma notif imediata pra validar permissão + agendamento. |
 | Erro silencioso | Se Expo Go, mostra erro inline mas mantém a preferência salva pra valer quando o user rodar EAS Build. |
 
-# UX flows (passo-a-passo)
+# 🧭 UX flows
 
 Fluxos completos, mapeando cada tela e o arquivo responsável. Use isso como guia pra navegar no código.
 
@@ -1734,7 +1727,7 @@ Fluxos completos, mapeando cada tela e o arquivo responsável. Use isso como gui
 | 4 | Tap → `AppModal` abre com texto: "1. Toque no ícone Compartilhar (□↑) na barra inferior. 2. Role e toque em 'Adicionar à Tela de Início'. 3. Confirme 'Adicionar' — pronto, vira ícone separado." | `InstallAppCard.tsx:185-191` |
 | 5 | User segue passos manuais (Safari não dispara `beforeinstallprompt`). Próxima abertura via ícone na home screen mostra DLibras em fullscreen sem barra de URL (mode standalone). | iOS Safari behavior |
 
-# Development guide
+# 🛠️ Development guide
 
 ## Pré-requisitos
 
@@ -1906,7 +1899,7 @@ react-native-lingua/
 └── docker/                              # Dockerfile.web, Dockerfile.api, nginx.conf
 ```
 
-# Testing
+# 🧪 Testing
 
 ## Smoke tests (manuais)
 
@@ -1981,7 +1974,7 @@ Não há suite E2E hoje. Candidatos pra implementar:
 - **Detox** — pra mobile (RN-native). Precisa EAS Build dev-client.
 - **Maestro** — alternativa mais leve, declarativa em YAML.
 
-Por enquanto, smoke tests manuais cobrem o crítico. Pra TCC isso basta; pra produção real seria bom adicionar pelo menos 1 fluxo E2E (login → completar 1 lição → ver XP no perfil).
+Por enquanto, smoke tests manuais cobrem o crítico. pra projetos academicos isso basta; pra produção real seria bom adicionar pelo menos 1 fluxo E2E (login → completar 1 lição → ver XP no perfil).
 
 ## Como debugar problemas comuns
 
@@ -2069,7 +2062,7 @@ docker compose --env-file docker/.env.production run --rm certbot \
 | EAS Build | Production | $19 |
 | **Total** | | **~$80–90/mês** |
 
-Modo TCC (sem usuários reais): **$0** — tudo no free tier.
+Modo projeto (sem usuários reais): **$0** — tudo no free tier.
 
 ### Próximos passos honestos
 
@@ -2215,7 +2208,7 @@ Vercel emite automaticamente o cert Let's Encrypt em ~30s.
 
 #### 6. Auto-deploy via GitHub
 
-Conecte o repo `ibmecrio/dlibras` no Vercel → cada `git push origin main` faz deploy automático.
+Conecte o repo `instituicao academicario/dlibras` no Vercel → cada `git push origin main` faz deploy automático.
 
 ---
 
@@ -2263,10 +2256,10 @@ mkdir -p /opt/dlibras
 cd /opt/dlibras
 
 # Backend (vision API)
-git clone https://github.com/ibmecrio/Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition.git libras-vision
+git clone https://github.com/instituicao academicario/Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition.git libras-vision
 
 # Frontend (só precisamos do docker-compose.yml + docker/ + .env.production)
-git clone https://github.com/ibmecrio/dlibras.git frontend
+git clone https://github.com/instituicao academicario/dlibras.git frontend
 ```
 
 #### 2. Configurar `.env.production`
@@ -2297,7 +2290,6 @@ POSTGRES_DB=dlibras
 DATABASE_URL=postgres://dlibras:<senha>@db:5432/dlibras
 
 # Let's Encrypt
-LETSENCRYPT_EMAIL=aquilesguerretta@gmail.com
 LETSENCRYPT_DOMAINS=api.dlibras.app
 ```
 
@@ -2314,7 +2306,6 @@ docker compose up -d nginx
 # Pedir o cert pra subdomain
 docker compose run --rm certbot certonly \
   --webroot --webroot-path=/var/www/certbot \
-  --email aquilesguerretta@gmail.com --agree-tos --no-eff-email \
   -d api.dlibras.app
 
 # Restart nginx pra carregar o cert
@@ -2570,8 +2561,8 @@ Deve retornar `Access-Control-Allow-Origin: https://web.dlibras.app`.
 **i18n**
 > Internacionalização. App suporta pt-BR (default), en e es via `lib/i18n.ts`.
 
-**IBMEC RJ**
-> Instituto Brasileiro de Mercado de Capitais — Rio de Janeiro. Faculdade onde o TCC foi desenvolvido.
+**instituicao academica**
+> Instituto Brasileiro de Mercado de Capitais — Rio de Janeiro. Faculdade onde o projeto foi desenvolvido.
 
 **JSON**
 > JavaScript Object Notation — formato de payload nas APIs REST do projeto.
@@ -2665,8 +2656,8 @@ Deve retornar `Access-Control-Allow-Origin: https://web.dlibras.app`.
 **SVM (Support Vector Machine)**
 > Classificador sklearn que encontra hiperplano de máxima margem. Um dos classificadores do ensemble.
 
-**TCC**
-> Trabalho de Conclusão de Curso. Requerimento acadêmico final pra graduação.
+**projeto**
+> projeto academico. Requerimento acadêmico final pra graduação.
 
 **TLS**
 > Transport Layer Security. Em prod (Docker Compose), Nginx + Let's Encrypt fornece TLS 1.3.
@@ -2703,7 +2694,7 @@ Deve retornar `Access-Control-Allow-Origin: https://web.dlibras.app`.
 
 ---
 
-# APIs — referência completa
+# 🌐 APIs
 
 DLibras consome 4 APIs externas + expõe seu próprio backend de visão. Esta seção documenta cada uma com método, payload, resposta e exemplo cURL.
 
@@ -3138,113 +3129,7 @@ curl -s "https://api.assemblyai.com/v2/transcript/$ID" \
 
 ---
 
-# TCC — Trabalho de Conclusão de Curso
-
-## Contexto institucional
-
-| Item | Valor |
-|------|-------|
-| Faculdade | IBMEC RJ |
-| Curso | Engenharia de Software / Ciência da Computação |
-| Aluno | Anderson Lima |
-| Matrícula | (a preencher) |
-| Orientador | Prof. Pedro Pinto |
-| Ano | 2026/1 |
-| Tema | Inclusão digital via reconhecimento de Libras com Computer Vision e IA conversacional |
-
-## Justificativa
-
-> O Brasil tem aproximadamente **10 milhões de pessoas surdas ou com deficiência auditiva** (IBGE). LIBRAS — Língua Brasileira de Sinais — foi reconhecida como meio legal de comunicação pela **Lei nº 10.436 de 24 de abril de 2002** e regulamentada pelo **Decreto nº 5.626/2005**, sendo a segunda língua oficial do país.
->
-> Apesar disso, aplicativos disponíveis pra ensino do alfabeto manual são escassos, geralmente limitados a vídeos passivos ou flashcards. Faltam soluções que ofereçam **feedback ativo via câmera + tutoria adaptativa**.
->
-> DLibras é uma resposta: une Computer Vision (KNN + MediaPipe + ensemble sklearn), IA conversacional (Claude Haiku 4.5) e voz neural (ElevenLabs Lily) numa experiência gamificada estilo Duolingo — gratuita, multiplataforma e acessível.
-
-## Objetivo geral
-
-Construir um app cross-platform (iOS, Android, Web/PWA) que ensine o alfabeto manual da LIBRAS via **reconhecimento por câmera em tempo real + tutor IA** — democratizando o primeiro contato com a língua de sinais.
-
-## Objetivos específicos
-
-1. **Acurácia ≥ 80%** em letras estáticas do alfabeto manual via classificador KNN + ensemble.
-2. **UX gamificada** (XP, hearts, streak, conquistas) estilo Duolingo, com 12 conquistas desbloqueáveis.
-3. **Acessibilidade multiplataforma**: PWA + iOS + Android via Expo Router + Service Worker.
-4. **Custos baixos**: $0/mês em modo demo (sem AI), $5-80/mês com 1k usuários ativos.
-5. **Tutor IA em pt-BR**: voz natural (ElevenLabs) + cérebro econômico (Claude Haiku 4.5).
-6. **Reconhecimento real-time**: WebSocket (`/predict-ws`) com latência < 100 ms.
-7. **Cobertura ≥ 80%** do alfabeto: 21 letras estáticas + 2 letras móveis (J, Z) via heurística ou LSTM.
-
-## ODS alinhados
-
-| ODS | Título | Como o DLibras contribui |
-|-----|--------|--------------------------|
-|  **4** | Educação de qualidade | Democratiza o acesso ao ensino de LIBRAS — qualquer um com um celular pode aprender |
-|  **10** | Redução das desigualdades | Ferramenta gratuita pra comunidade surda e seus familiares; remove barreiras de comunicação |
-
-> _"Garantir educação inclusiva, equitativa e de qualidade, e promover oportunidades de aprendizagem ao longo da vida pra todos."_
-> — ONU, Agenda 2030, Objetivo 4
-
-## Metodologia
-
-1. **Pesquisa bibliográfica** sobre LIBRAS, Computer Vision aplicada a língua de sinais, gamificação em ensino e UX em apps de aprendizagem.
-2. **Coleta de dataset** — vídeos próprios + dataset público (em [repositório separado](https://github.com/ibmecrio/Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition)).
-3. **Extração de features** com MediaPipe HandLandmarker (21 pontos 2D normalizados).
-4. **Treino de 5 classificadores sklearn** (KNN, SVM, MLP, Random Forest, Logistic Regression) + ensemble (voto majoritário ponderado).
-5. **Implementação iterativa** do app em React Native + Expo, com testes em emulador, device físico e web.
-6. **Integração de IA** (Claude + ElevenLabs + AssemblyAI) com fallback em cadeia + proxy server-side pra prod.
-7. **Testes com usuários** (planejado para semestre seguinte) — UX + acurácia + retenção.
-
-## Resultados parciais
-
-| Métrica | Valor |
-|---------|-------|
-| Letras estáticas reconhecidas | 21 de 26 (A, B, C, D, E, F, G, I, L, M, N, O, P, Q, R, S, T, U, V, W, Y) |
-| Letras dinâmicas reconhecidas | 2 (J, Z) via heurística |
-| Letras pendentes | 3 (H, K, X) — exigem movimento sutil ou postura ambígua |
-| Acurácia média (validation set) | ~85% no KNN simples, ~89% no ensemble |
-| Latência média | ~40ms (HTTP) · ~32ms (WS) |
-| Plataformas | Web (PWA) · iOS · Android |
-| Idiomas suportados | pt-BR · en · es |
-| Conquistas | 12 |
-| Conversa com a Bia | pt-BR via Claude + ElevenLabs + AssemblyAI |
-
-## Trabalhos futuros
-
-- [ ] **LSTM motion treinado** pra J, Z, H, K, X — substituir heurística por modelo sequencial real
-- [ ] **Cobertura completa do alfabeto** (5 letras restantes)
-- [ ] **Sinais de palavras e frases** — vocabulário de transição
-- [ ] **Dataset com pessoas diversas** (idade, tom de pele, iluminação) — reduzir viés
-- [ ] **Voz realtime** via WebRTC (Stream / OpenAI Realtime) — bidirecional, baixa latência
-- [ ] **Leaderboard semanal de XP** entre amigos / turmas
-- [ ] **Animações Lottie** do mascote fazendo cada sinal
-- [ ] **Modo professor** — dashboard pra escolas acompanharem alunos
-- [ ] **Avaliação clínica formal** — métricas de retenção e usabilidade com a comunidade surda
-
-## Bibliografia (referências sugeridas — ABNT NBR 6023)
-
-1. BRASIL. **Lei nº 10.436, de 24 de abril de 2002**. Dispõe sobre a Língua Brasileira de Sinais — Libras. Diário Oficial da União, Brasília, DF, 25 abr. 2002.
-
-2. BRASIL. **Decreto nº 5.626, de 22 de dezembro de 2005**. Regulamenta a Lei nº 10.436/2002. Diário Oficial da União, Brasília, DF, 23 dez. 2005.
-
-3. LUGARESI, C. et al. **MediaPipe: A Framework for Building Perception Pipelines**. arXiv preprint arXiv:1906.08172, 2019.
-
-4. ZHANG, F. et al. **MediaPipe Hands: On-device Real-time Hand Tracking**. arXiv preprint arXiv:2006.10214, 2020.
-
-5. QUADROS, R. M. de. **Educação de surdos: a aquisição da linguagem**. Porto Alegre: Artmed, 1997.
-
-6. PEDROSO, T.; ROCHA, A.; SOUZA, F. **Reconhecimento automático de sinais da Libras: uma revisão sistemática**. Revista Brasileira de Informática na Educação, [s.l.], 2021.
-
-7. DETERDING, S. et al. **From game design elements to gamefulness: Defining gamification**. In: Proceedings of the 15th International Academic MindTrek Conference, ACM, 2011, p. 9-15.
-
-8. SCHMIDHUBER, J. **Deep learning in neural networks: An overview**. Neural Networks, v. 61, p. 85-117, 2015.
-
-9. EXPO TEAM. **Expo SDK Documentation**. Disponível em: https://docs.expo.dev/. Acesso em: jun. 2026.
-
-10. ANTHROPIC. **Claude API Reference**. Disponível em: https://docs.anthropic.com/. Acesso em: jun. 2026.
-
----
-
-# Licença
+# 📄 Licença
 
 ```
 MIT License
@@ -3271,113 +3156,3 @@ SOFTWARE.
 ```
 
 ---
-
-# Agradecimentos
-
-Agradecimentos especiais a:
-
-- **Prof. Pedro Pinto** — orientador do TCC, pela paciência, pelas críticas construtivas e por embarcar nessa ideia de juntar Computer Vision com inclusão social.
-- **Comunidade surda do Brasil** — pelo exemplo de luta, pela inspiração e pela história da LIBRAS como segunda língua oficial.
-- **Anthropic**, **ElevenLabs** e **AssemblyAI** — pelos créditos do plano gratuito, sem os quais a Bia não falaria com voz natural.
-- **IBMEC RJ** — pela estrutura acadêmica e ambiente de pesquisa.
-- **Comunidade open-source** — Expo, FastAPI, MediaPipe, scikit-learn, React Native, Clerk, NativeWind, Reanimated, Zustand, Expo Router e dezenas de outras bibliotecas que tornam esse projeto possível.
-- **Colegas de turma e amigos** que testaram versões iniciais e mandaram feedback brutalmente honesto.
-- **Família** — pelo apoio durante as madrugadas de debug.
-
----
-
-# Contato
-
-| Canal | Link |
-|-------|------|
-|  Email | [aquilesguerretta@gmail.com](mailto:aquilesguerretta@gmail.com) |
-|  Repositório (app) | [github.com/ibmecrio/dlibras](https://github.com/ibmecrio/dlibras) |
-|  Repositório (backend de visão) | [github.com/ibmecrio/Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition](https://github.com/ibmecrio/Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition) |
-|  Instituição | IBMEC RJ |
-
-Issues, PRs e discussões são bem-vindos. Pra reportar bug ou pedir feature, abra uma issue no repo principal.
-
----
-
-> _"Feito com  no Rio de Janeiro."_
-> — Anderson Lima, 2026
-
----
-
-## Roadmap & Trabalhos futuros
-
-### Curto prazo (próximas 2 semanas)
-- [ ] Treinar **LSTM motion model** real pra J e Z (hoje usa heurística de trajetória)
-- [ ] Deploy em produção (Docker Compose no VPS `187.77.253.138` + domínio `dlibras.app`)
-- [ ] Gravar vídeo demo (3-5 minutos) pra YouTube e linkar no README
-- [ ] Testar com 10+ usuários da comunidade surda e coletar feedback
-
-### Médio prazo (1-2 meses)
-- [ ] **Voice realtime via WebRTC** (Stream Video + OpenAI Realtime) — exige EAS Build
-- [ ] **Leaderboard semanal** entre amigos (precisa backend Postgres ativo)
-- [ ] **Lottie animado** do mascote fazendo cada sinal (precisa artista 2D)
-- [ ] **Push notifications** funcionando em produção (EAS Build + Expo Push)
-- [ ] **Mais conteúdo**: palavras compostas, frases, diálogos
-- [ ] **Histórias** (mini-narrativas em Libras)
-- [ ] **Modo offline first** completo (cache de lições + queue de submissões)
-
-### Longo prazo (TCC + além)
-- [ ] **App store deploy** (Apple App Store + Google Play)
-- [ ] **Modelo treinado em dataset diverso** (idade, etnia, condições de luz)
-- [ ] **Mais línguas de sinais** (ASL, LSE espanhola, LSF francesa)
-- [ ] **Sistema de tutorias ao vivo** com voluntários intérpretes
-- [ ] **Certificação** parceria com instituições
-
----
-
-## Como contribuir
-
-Contribuições são MUITO bem-vindas! O projeto é aberto e queremos que cresça com a comunidade.
-
-### Antes de abrir uma PR
-
-1. **Abra uma issue** descrevendo o que pretende mudar (especialmente pra features novas)
-2. **Fork** o repo e crie uma branch (`git checkout -b feat/minha-feature`)
-3. Garanta que `pnpm exec tsc --noEmit` passa **0 erros**
-4. Faça **commit messages claros** (padrão [Conventional Commits](https://www.conventionalcommits.org/))
-5. **Teste manualmente** no Web + Expo Go antes de submeter
-6. Atualize o **CHANGELOG.md** se aplicável
-
-### Áreas onde precisamos mais ajuda
-
--  **Design / UX**: artwork pro mascote, ícones, splash screens
--  **Computer Vision**: treinar modelos melhores, dataset diversificado
--  **Acessibilidade**: testes com VoiceOver/TalkBack reais
--  **Conteúdo**: mais lições, frases, exemplos
--  **Tradução**: revisão das strings en/es por nativos
--  **Bug reports**: reporta tudo que encontrar
-
-### Code style
-
-- TypeScript strict (sem `any` sem justificativa em comentário)
-- Componentes funcionais com hooks (zero class components, exceto ErrorBoundary)
-- Imports organizados (externos → `@/` aliases → relativos)
-- Comentários em português brasileiro (audiência é nacional)
-- Tests não obrigatórios ainda, mas welcome
-
----
-
-## Contato
-
-| Canal | Link |
-|-------|------|
-|  Email | aquilesguerretta@gmail.com |
-|  GitHub Issues | https://github.com/ibmecrio/dlibras/issues |
-|  Discussions | https://github.com/ibmecrio/dlibras/discussions |
-|  Backend repo (vision) | https://github.com/ibmecrio/Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition |
-
----
-
-<div align="center">
-
-### DLibras
-
-**Aprenda Libras. Inclusão digital. Open source.**
-
-
-</div>
