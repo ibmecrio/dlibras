@@ -1,0 +1,26 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: dlibras-api
+    restart: unless-stopped
+    ports:
+      - "8801:8001"  # 8001 já ocupado por outro projeto na VPS; uso 8801 externamente
+    env_file:
+      - .env
+    networks:
+      - dlibras-net
+      - nginx-proxy-manager_default  # NPM precisa estar nessa network pra rotear
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+networks:
+  dlibras-net:
+    driver: bridge
+  nginx-proxy-manager_default:
+    external: true

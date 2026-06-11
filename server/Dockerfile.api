@@ -1,0 +1,33 @@
+FROM python:3.11-slim
+
+# MediaPipe + OpenCV system deps. libegl1 + libgles2 são essenciais —
+# sem eles MediaPipe falha com "libGLESv2.so.2: cannot open shared object file".
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 libgomp1 \
+    libegl1 libgles2 curl \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Deps Python — separado pra cache layer
+COPY libras-vision/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir 'fastapi==0.115.0' 'uvicorn[standard]==0.30.6' 'python-multipart==0.0.9'
+
+# Código + modelos
+COPY libras-vision/api_server.py .
+COPY libras-vision/extract.py .
+COPY libras-vision/landmark_extractor.py .
+COPY libras-vision/libras_vision.py .
+COPY libras-vision/knn_model.py .
+COPY libras-vision/svm_model.py .
+COPY libras-vision/mlp_model.py .
+COPY libras-vision/random_forest_model.py .
+COPY libras-vision/logistic_regression_model.py .
+COPY libras-vision/models /app/models
+
+EXPOSE 8001
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s \
+  CMD curl -fsS http://localhost:8001/health || exit 1
+
+CMD ["uvicorn", "api_server:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "2"]
