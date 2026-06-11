@@ -1,0 +1,67 @@
+# ─────────────────────────────────────────────────────────────────────
+# Keeps the docker build context lean. Anything in here is invisible to
+# both Dockerfile.web and Dockerfile.api.
+# ─────────────────────────────────────────────────────────────────────
+
+# VCS
+.git
+.gitignore
+.gitattributes
+
+# Editors / OS noise
+.vscode
+.idea
+.DS_Store
+*.swp
+*.swo
+
+# Node / Expo
+node_modules
+.expo
+.expo-shared
+dist
+web-build
+*.tsbuildinfo
+.metro-health-check*
+
+# Native projects (we ship web only)
+/ios
+/android
+
+# Python venvs / caches inside the Libras backend
+Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition/.venv
+Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition/__pycache__
+Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition/**/__pycache__
+Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition/*.pyc
+
+# Training data is big and not needed at runtime (models/*.joblib is).
+Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition/dataset_antigo
+Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition/dataset_estaticos
+Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition/landmarks_training.csv
+Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition/landmarks_test.csv
+Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition/training
+
+# Vision-agent venv (Stream-based service, not bundled in this deploy)
+vision-agent/.venv
+vision-agent/__pycache__
+
+# Local env / secrets (env vars are injected via --env-file at runtime)
+.env
+.env.local
+.env.*.local
+docker/.env.production
+
+# Logs and prompts
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+/prompts
+prompt_material
+
+# Docs / heavy markdown not needed at runtime
+posthog-setup-report.md
+
+# Test artifacts
+coverage
+.nyc_output

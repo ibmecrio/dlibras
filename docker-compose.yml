@@ -1,0 +1,157 @@
+# ─────────────────────────────────────────────────────────────────────
+# DLibras — full-stack deploy (web + api + db + nginx + certbot)
+# Public IP: 187.77.253.138  ·  Domain: dlibras.app / www.dlibras.app
+# ─────────────────────────────────────────────────────────────────────
+# Usage:
+#   docker compose --env-file docker/.env.production build
+#   docker compose --env-file docker/.env.production up -d
+# ─────────────────────────────────────────────────────────────────────
+
+name: dlibras
+
+services:
+  # ── Web frontend (Expo Router static export, served by nginx) ────
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+      args:
+        EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY: ${EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY:-}
+        EXPO_PUBLIC_LIBRAS_API_URL: ${EXPO_PUBLIC_LIBRAS_API_URL:-/api}
+        EXPO_PUBLIC_PROXY_SECRET: ${EXPO_PUBLIC_PROXY_SECRET:-}
+        EXPO_PUBLIC_POSTHOG_TOKEN: ${EXPO_PUBLIC_POSTHOG_TOKEN:-}
+        EXPO_PUBLIC_POSTHOG_HOST: ${EXPO_PUBLIC_POSTHOG_HOST:-}
+    image: dlibras/web:latest
+    container_name: dlibras-web
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - frontend
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ── Vision API (FastAPI + MediaPipe + KNN) ───────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    image: dlibras/api:latest
+    container_name: dlibras-api
+    restart: unless-stopped
+    env_file:
+      - docker/.env.production
+    environment:
+      # Resolved at runtime — keep these in sync with .env.production keys.
+      DATABASE_URL: ${DATABASE_URL:-postgres://${POSTGRES_USER:-dlibras}:${POSTGRES_PASSWORD:-dlibras}@db:5432/${POSTGRES_DB:-dlibras}}
+      DLIBRAS_ALLOWED_ORIGINS: ${DLIBRAS_ALLOWED_ORIGINS:-https://dlibras.app,https://www.dlibras.app}
+    expose:
+      - "8001"
+    networks:
+      - backend
+      - frontend
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8001/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # ── Postgres (future user accounts, leaderboards, progress sync) ─
+  db:
+    image: postgres:16-alpine
+    container_name: dlibras-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dlibras}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dlibras}
+      POSTGRES_DB: ${POSTGRES_DB:-dlibras}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dlibras} -d ${POSTGRES_DB:-dlibras}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── Public-facing nginx (TLS + reverse proxy) ────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: dlibras-nginx
+    restart: unless-stopped
+    depends_on:
+      web:
+        condition: service_started
+      api:
+        condition: service_started
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - certbot-www:/var/www/certbot:ro
+      - certbot-etc:/etc/letsencrypt:ro
+    networks:
+      - frontend
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/.well-known/acme-challenge/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ── Certbot (Let's Encrypt renewal sidecar) ──────────────────────
+  # Run manually for the first issue:
+  #   docker compose run --rm certbot certonly \
+  #     --webroot -w /var/www/certbot \
+  #     -d dlibras.app -d www.dlibras.app \
+  #     --email admin@dlibras.app --agree-tos --no-eff-email
+  # After that, this container renews every 12h.
+  certbot:
+    image: certbot/certbot:latest
+    container_name: dlibras-certbot
+    restart: unless-stopped
+    depends_on:
+      - nginx
+    volumes:
+      - certbot-www:/var/www/certbot
+      - certbot-etc:/etc/letsencrypt
+    entrypoint: /bin/sh -c
+    command: >
+      "trap exit TERM;
+       while :; do
+         certbot renew --webroot -w /var/www/certbot --quiet;
+         sleep 12h & wait $${!};
+       done"
+
+# ─────────────────────────────────────────────────────────────────────
+# Networks: keep db unreachable from nginx; api straddles both.
+# ─────────────────────────────────────────────────────────────────────
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+    internal: false
+
+# ─────────────────────────────────────────────────────────────────────
+# Volumes
+# ─────────────────────────────────────────────────────────────────────
+volumes:
+  dbdata:
+    driver: local
+  certbot-www:
+    driver: local
+  certbot-etc:
+    driver: local

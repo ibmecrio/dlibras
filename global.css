@@ -1,0 +1,53 @@
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/preflight.css" layer(base);
+@import "tailwindcss/utilities.css";
+
+@import "nativewind/theme";
+
+@source "./app/**/*.{js,jsx,ts,tsx}";
+@source "./components/**/*.{js,jsx,ts,tsx}";
+
+/* Remove anel azul/cyan de foco do browser em Pressables, ScrollViews, etc.
+   Mantemos :focus-visible quando o usuário navega por teclado (acessibilidade). */
+@layer base {
+  *:focus {
+    outline: none !important;
+  }
+  *:focus-visible {
+    outline: 2px solid rgba(108, 78, 245, 0.4) !important;
+    outline-offset: 2px;
+    border-radius: 8px;
+  }
+  /* No mobile-web (touch only), nunca mostra outline */
+  @media (hover: none) {
+    *:focus-visible {
+      outline: none !important;
+    }
+  }
+  /* Botão de tab nunca leva outline (já temos o chip roxo como indicador) */
+  [role="tab"]:focus,
+  [role="tab"]:focus-visible {
+    outline: none !important;
+  }
+}
+
+@theme {
+  --color-lingua-purple: #6c4ef5;
+  --color-lingua-deep-purple: #5b3bf6;
+  --color-lingua-blue: #4d88ff;
+  --color-lingua-green: #21c16b;
+  --color-success: #21c16b;
+  --color-warning: #ffcb00;
+  --color-streak: #ff8a00;
+  --color-error: #ff4d4f;
+  --color-info: #4d88ff;
+  --color-text-primary: #001328;
+  --color-text-secondary: #6b7280;
+  --color-border: #e5e7eb;
+  --color-surface: #f6f7fb;
+  --color-background: #ffffff;
+  --font-poppins: "Poppins-Regular";
+  --font-poppins-medium: "Poppins-Medium";
+  --font-poppins-semibold: "Poppins-SemiBold";
+  --font-poppins-bold: "Poppins-Bold";
+}

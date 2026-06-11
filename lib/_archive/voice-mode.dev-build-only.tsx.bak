@@ -1,0 +1,933 @@
+// Modo "voz" da lição — Bia (agente OpenAI Realtime via Stream Video) conversa
+// em pt-BR e a LibrasCamera detecta o sinal que o aluno faz. Quando bate, o
+// app publica o custom event `libras_sign_matched` na sala Stream pra Bia
+// reagir, dispara haptics, avança a letra.
+//
+// Esse arquivo só é montado quando Clerk + Stream estão configurados no .env
+// (ver `app/lesson/[id].tsx`). Em modo demo cai em `_demo-mode.tsx`.
+
+import { Ionicons } from "@expo/vector-icons";
+import { useAuth, useUser } from "@/lib/auth";
+import {
+  Call,
+  CallClosedCaption,
+  StreamCall,
+  StreamVideo,
+  StreamVideoClient,
+  useCallStateHooks,
+} from "@stream-io/video-react-native-sdk";
+import * as Haptics from "expo-haptics";
+import { Image } from "expo-image";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import * as Speech from "expo-speech";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  Dimensions,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import ConfettiCannon from "react-native-confetti-cannon";
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withTiming,
+} from "react-native-reanimated";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+import { LibrasCamera } from "@/components/LibrasCamera";
+import { MascotBubble } from "@/components/MascotBubble";
+import { images } from "@/constants/images";
+import { colors, useThemeColors } from "@/constants/theme";
+import { Lesson } from "@/types/learning";
+import { LESSONS } from "@/data/lessons";
+import { safeBack } from "@/lib/navigation";
+import { posthog } from "@/lib/posthog";
+import { cardShadow } from "@/lib/styles";
+import { useLearningStore } from "@/store/learningStore";
+
+type CallStatus = "idle" | "connecting" | "joined" | "error";
+type AgentStatus = "idle" | "connecting" | "connected" | "failed";
+
+const AGENT_USER_ID = "ai-teacher";
+const ADVANCE_DELAY_MS = 1100;
+const COMPLETION_FALLBACK_DELAY_MS = 1400;
+
+export default function VoiceLessonScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const router = useRouter();
+  const c = useThemeColors();
+  const { user, isLoaded } = useUser();
+  const { getToken } = useAuth();
+  const { completeLesson, addXP } = useLearningStore();
+
+  const lesson = LESSONS.find((l) => l.id === id);
+
+  // Stream call lifecycle state
+  const [client, setClient] = useState<StreamVideoClient | null>(null);
+  const [call, setCall] = useState<Call | null>(null);
+  const [callStatus, setCallStatus] = useState<CallStatus>("idle");
+  const [agentStatus, setAgentStatus] = useState<AgentStatus>("idle");
+
+  const callRef = useRef<Call | null>(null);
+  const clientRef = useRef<StreamVideoClient | null>(null);
+  const agentSessionRef = useRef<string | null>(null);
+  const lessonStartTimeRef = useRef<number | null>(null);
+  const abandonedRef = useRef(false);
+
+  // Lição progress
+  const [signIndex, setSignIndex] = useState(0);
+  const signIndexRef = useRef(0);
+  const completedRef = useRef(false);
+  const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const signTargets = lesson?.signTargets ?? [];
+  const currentTarget = signTargets[signIndex];
+  const isFinished = signIndex >= signTargets.length;
+
+  useEffect(() => {
+    signIndexRef.current = signIndex;
+  }, [signIndex]);
+
+  useEffect(() => {
+    if (!isLoaded || !user || !lesson) return;
+    lessonStartTimeRef.current = Date.now();
+    abandonedRef.current = false;
+    posthog.capture("lesson_started", {
+      lesson_id: lesson.id,
+      language: "libras",
+      sign_count: signTargets.length,
+      mode: "voice",
+    });
+    startCall();
+    return () => {
+      if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+      if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+      try {
+        Speech.stop();
+      } catch {}
+      if (!abandonedRef.current && !completedRef.current) {
+        abandonedRef.current = true;
+        posthog.capture("lesson_abandoned", {
+          lesson_id: lesson.id,
+          progress: `${signIndexRef.current}/${signTargets.length}`,
+          time_into_lesson_seconds: lessonStartTimeRef.current
+            ? Math.floor((Date.now() - lessonStartTimeRef.current) / 1000)
+            : 0,
+        });
+      }
+      callRef.current?.leave().catch(() => {});
+      clientRef.current?.disconnectUser().catch(() => {});
+      stopAgentSession(callRef.current?.id ?? null, agentSessionRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded, user?.id, lesson?.id]);
+
+  async function startCall() {
+    if (!user || !lesson) return;
+    setCallStatus("connecting");
+    try {
+      const clerkToken = await getToken();
+      if (!clerkToken) throw new Error("Not authenticated");
+      const res = await fetch("/api/stream-token", {
+        headers: { Authorization: `Bearer ${clerkToken}` },
+      });
+      if (!res.ok) throw new Error("Token fetch failed");
+      const { token, apiKey } = await res.json();
+
+      const streamClient = StreamVideoClient.getOrCreateInstance({
+        apiKey,
+        token,
+        user: {
+          id: user.id,
+          name: user.fullName ?? user.id,
+          image: user.imageUrl || undefined,
+        },
+      });
+
+      const callId = `lesson-libras-${lesson.id}-${user.id}`;
+      const streamCall = streamClient.call("default", callId);
+      await streamCall.join({ create: true });
+      try {
+        await streamCall.microphone.disable();
+      } catch {}
+
+      try {
+        await streamCall.update({
+          custom: {
+            lesson_id: lesson.id,
+            lesson_title: lesson.title,
+            language: "libras",
+            goals: lesson.goals.map((g) => g.description),
+            vocabulary: lesson.vocabulary.map(
+              (v) => `${v.word}: ${v.translation}`,
+            ),
+            phrases: lesson.phrases.map((p) => p.text),
+            topics: lesson.aiTeacherPrompt.topics,
+            system_prompt: lesson.aiTeacherPrompt.systemPrompt,
+            intro_message: lesson.aiTeacherPrompt.introMessage,
+          },
+        });
+      } catch (e) {
+        console.warn("[voice-lesson] call.update failed:", e);
+      }
+
+      try {
+        await streamCall.startClosedCaptions();
+      } catch (e) {
+        console.warn("[voice-lesson] startClosedCaptions failed:", e);
+      }
+
+      callRef.current = streamCall;
+      clientRef.current = streamClient;
+      setClient(streamClient);
+      setCall(streamCall);
+      setCallStatus("joined");
+      startAgentSession(callId);
+    } catch (err) {
+      console.error("[voice-lesson] Stream call error:", err);
+      setCallStatus("error");
+    }
+  }
+
+  async function startAgentSession(callId: string) {
+    setAgentStatus("connecting");
+    try {
+      const res = await fetch("/api/agent-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ callId, callType: "default" }),
+      });
+      if (res.ok) {
+        const { session_id } = await res.json();
+        agentSessionRef.current = session_id ?? null;
+        setAgentStatus("connected");
+      } else {
+        setAgentStatus("failed");
+      }
+    } catch (err) {
+      console.error("[voice-lesson] agent-session error:", err);
+      setAgentStatus("failed");
+    }
+  }
+
+  function stopAgentSession(callId: string | null, sessionId: string | null) {
+    if (!callId || !sessionId) return;
+    fetch(
+      `/api/agent-session?callId=${encodeURIComponent(callId)}&sessionId=${encodeURIComponent(sessionId)}`,
+      { method: "DELETE" },
+    ).catch(() => {});
+  }
+
+  function finishLesson() {
+    if (!lesson || completedRef.current) return;
+    completedRef.current = true;
+    completeLesson(lesson.id);
+    addXP(lesson.xpReward);
+    posthog.capture("lesson_completed", {
+      lesson_id: lesson.id,
+      language: "libras",
+      xp_reward: lesson.xpReward,
+      mode: "voice",
+      duration_seconds: lessonStartTimeRef.current
+        ? Math.floor((Date.now() - lessonStartTimeRef.current) / 1000)
+        : 0,
+    });
+    try {
+      Speech.speak(`Boa! Você ganhou ${lesson.xpReward} XP.`, {
+        language: "pt-BR",
+        rate: 0.95,
+      });
+    } catch {}
+  }
+
+  // Quando a câmera detecta a letra, emite custom event pra Bia reagir +
+  // avança o cursor da lição.
+  const handleSignMatched = useCallback(
+    (letter: string) => {
+      const idx = signIndexRef.current;
+      const target = signTargets[idx]?.letter ?? letter;
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      posthog.capture("libras_sign_matched", {
+        lesson_id: lesson?.id ?? id,
+        letter,
+        sign_index: idx,
+        mode: "voice",
+      });
+      // Bia reage por voz com a próxima letra (via vision-agent listener)
+      callRef.current
+        ?.sendCustomEvent({
+          type: "libras_sign_matched",
+          letter,
+          target,
+        })
+        .catch(() => {});
+
+      advanceTimerRef.current = setTimeout(() => {
+        const next = idx + 1;
+        if (next >= signTargets.length) {
+          finishLesson();
+          exitTimerRef.current = setTimeout(
+            () => safeBack(router),
+            COMPLETION_FALLBACK_DELAY_MS,
+          );
+        }
+        setSignIndex(next);
+      }, ADVANCE_DELAY_MS);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  async function handleLeave() {
+    if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+    if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+    if (!abandonedRef.current && !completedRef.current) {
+      abandonedRef.current = true;
+      posthog.capture("lesson_abandoned", {
+        lesson_id: lesson?.id ?? id,
+        progress: `${signIndexRef.current}/${signTargets.length}`,
+        time_into_lesson_seconds: lessonStartTimeRef.current
+          ? Math.floor((Date.now() - lessonStartTimeRef.current) / 1000)
+          : 0,
+      });
+    }
+    const callId = callRef.current?.id ?? null;
+    const sessionId = agentSessionRef.current;
+    try {
+      await callRef.current?.leave();
+      clientRef.current?.disconnectUser();
+    } catch {}
+    callRef.current = null;
+    clientRef.current = null;
+    agentSessionRef.current = null;
+    stopAgentSession(callId, sessionId);
+    safeBack(router);
+  }
+
+  if (!lesson) {
+    return (
+      <SafeAreaView
+        style={[styles.notFoundWrap, { backgroundColor: c.neutral.background }]}
+      >
+        <Text style={[styles.notFoundTitle, { color: c.neutral.textPrimary }]}>
+          Lição não encontrada
+        </Text>
+        <Pressable
+          style={[styles.primaryButton, { backgroundColor: c.primary.purple }]}
+          onPress={() => safeBack(router)}
+        >
+          <Text style={styles.primaryButtonText}>Voltar</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
+
+  const showMascot = !isFinished && signTargets.length > 0;
+  const mascotProgress = signTargets.length
+    ? signIndex / signTargets.length
+    : 0;
+
+  return (
+    <SafeAreaView style={{ flex: 1, backgroundColor: c.neutral.background }}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={handleLeave}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel="Voltar pro mapa de lições"
+        >
+          <Ionicons
+            name="chevron-back"
+            size={24}
+            color={c.neutral.textPrimary}
+          />
+        </TouchableOpacity>
+        <View style={styles.headerTextWrap}>
+          <Text
+            style={[styles.headerTitle, { color: c.neutral.textPrimary }]}
+            numberOfLines={1}
+          >
+            {lesson.title}
+          </Text>
+          <Text
+            style={[styles.headerSubtitle, { color: c.neutral.textSecondary }]}
+          >
+            {Math.min(signIndex + 1, signTargets.length)} / {signTargets.length}
+            {" · com Bia 🎙️"}
+          </Text>
+        </View>
+        <View style={styles.headerRightSpacer}>
+          {showMascot && (
+            <MascotBubble
+              progress={mascotProgress}
+              total={signTargets.length}
+              current={signIndex}
+            />
+          )}
+        </View>
+      </View>
+
+      {/* Área da câmera (Libras) — onde acontece a interação real */}
+      <View style={styles.cameraContainer}>
+        {isFinished || !currentTarget ? (
+          <CelebrationView lesson={lesson} />
+        ) : (
+          <LibrasCamera
+            target={currentTarget.letter}
+            onMatch={handleSignMatched}
+          />
+        )}
+      </View>
+
+      {/* Stream call panel (Bia + captions + push-to-talk) */}
+      {callStatus === "joined" && client && call ? (
+        <StreamVideo client={client}>
+          <StreamCall call={call}>
+            <BiaPanel
+              agentStatus={agentStatus}
+              lesson={lesson}
+              call={call}
+              onRetry={() => startAgentSession(call.id)}
+            />
+          </StreamCall>
+        </StreamVideo>
+      ) : (
+        <BiaPanelFallback
+          callStatus={callStatus}
+          onRetry={startCall}
+        />
+      )}
+
+      {/* Strip de letras embaixo */}
+      <View style={styles.vocabRow}>
+        {signTargets.map((t, idx) => (
+          <View
+            key={`${t.letter}-${idx}`}
+            style={[
+              styles.vocabChip,
+              {
+                backgroundColor: c.neutral.surface,
+                borderColor: c.neutral.border,
+              },
+              idx === signIndex && {
+                backgroundColor: c.primary.purple,
+                borderColor: c.primary.purple,
+              },
+              idx < signIndex && {
+                backgroundColor: c.semantic.success,
+                borderColor: c.semantic.success,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.vocabLetter,
+                { color: c.neutral.textPrimary },
+                (idx === signIndex || idx < signIndex) && { color: "#fff" },
+              ]}
+            >
+              {t.letter}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </SafeAreaView>
+  );
+}
+
+// Estrela animada da tela de conclusão — bounce pra dar peso ao acerto.
+function CelebrationView({ lesson }: { lesson: Lesson }) {
+  const c = useThemeColors();
+  const scale = useSharedValue(0);
+  useEffect(() => {
+    scale.value = withSequence(
+      withTiming(1.25, { duration: 360, easing: Easing.out(Easing.back(1.8)) }),
+      withTiming(1, { duration: 240, easing: Easing.inOut(Easing.quad) }),
+    );
+  }, [scale]);
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+  return (
+    <View
+      style={[styles.finishedWrap, { backgroundColor: c.semantic.success }]}
+    >
+      <Animated.Text style={[styles.finishedEmoji, animStyle]}>⭐</Animated.Text>
+      <Text style={styles.finishedTitle}>Lição completa!</Text>
+      <Text style={styles.finishedSubtitle}>
+        +{lesson.xpReward} XP — voltando ao mapa…
+      </Text>
+      <ConfettiCannon
+        count={140}
+        origin={{ x: Dimensions.get("window").width / 2, y: 0 }}
+        fadeOut
+        autoStart
+        fallSpeed={2800}
+        explosionSpeed={500}
+      />
+    </View>
+  );
+}
+
+type PartialCaption = { speaker: "agent" | "user"; text: string };
+
+function BiaPanel({
+  agentStatus,
+  lesson,
+  call,
+  onRetry,
+}: {
+  agentStatus: AgentStatus;
+  lesson: Lesson;
+  call: Call;
+  onRetry: () => void;
+}) {
+  const c = useThemeColors();
+  const { useMicrophoneState, useCallClosedCaptions } = useCallStateHooks();
+  const { microphone } = useMicrophoneState();
+  const captions = useCallClosedCaptions();
+  const [isHeld, setIsHeld] = useState(false);
+  const [partial, setPartial] = useState<PartialCaption | null>(null);
+  const partialTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  interface StreamCustomEvent {
+    custom?: {
+      type?: string;
+      speaker?: "agent" | "user";
+      text?: string;
+    };
+  }
+
+  useEffect(() => {
+    const unsubscribe = call.on("custom", (event: StreamCustomEvent) => {
+      const data = event?.custom ?? {};
+      if (data.type === "transcript_partial" && data.text) {
+        setPartial({ speaker: data.speaker ?? "agent", text: data.text });
+        if (partialTimerRef.current) clearTimeout(partialTimerRef.current);
+        partialTimerRef.current = setTimeout(() => setPartial(null), 3000);
+      }
+    });
+    return () => {
+      unsubscribe();
+      if (partialTimerRef.current) clearTimeout(partialTimerRef.current);
+    };
+  }, [call]);
+
+  useEffect(() => {
+    if (captions.length > 0) {
+      setPartial(null);
+      if (partialTimerRef.current) clearTimeout(partialTimerRef.current);
+    }
+  }, [captions]);
+
+  const isReady = agentStatus === "connected";
+  const showCaptions = partial !== null || captions.length > 0;
+
+  function handlePressIn() {
+    if (!isReady) return;
+    setIsHeld(true);
+    microphone.enable();
+  }
+
+  function handlePressOut() {
+    setIsHeld(false);
+    microphone.disable();
+  }
+
+  return (
+    <View style={styles.biaPanel}>
+      {/* Caption strip — pequena pra não ocupar muito espaço */}
+      {showCaptions && (
+        <View style={styles.captionsContainer}>
+          {partial ? (
+            <CaptionBubble
+              speaker={partial.speaker}
+              text={partial.text}
+              partial
+            />
+          ) : (
+            captions.slice(-2).map((caption: CallClosedCaption, i: number) => {
+              const isTeacher = caption.user?.id === AGENT_USER_ID;
+              return (
+                <CaptionBubble
+                  key={`${caption.start_time}-${i}`}
+                  speaker={isTeacher ? "agent" : "user"}
+                  text={caption.text}
+                />
+              );
+            })
+          )}
+        </View>
+      )}
+
+      {!showCaptions && (
+        <View style={styles.statusInline}>
+          {agentStatus === "connecting" && (
+            <View style={styles.statusInlineRow}>
+              <ActivityIndicator size="small" color={c.primary.purple} />
+              <Text style={[styles.statusText, { color: c.neutral.textSecondary }]}>
+                Bia tá entrando na sala…
+              </Text>
+            </View>
+          )}
+          {agentStatus === "connected" && (
+            <Text style={[styles.statusText, { color: c.semantic.success }]}>
+              {lesson.aiTeacherPrompt.introMessage.split("!")[0]}!
+            </Text>
+          )}
+          {agentStatus === "failed" && (
+            <TouchableOpacity
+              onPress={onRetry}
+              style={styles.statusInlineRow}
+              accessibilityRole="button"
+              accessibilityLabel="Tentar reconectar Bia"
+            >
+              <Ionicons
+                name="refresh-outline"
+                size={18}
+                color={c.semantic.error}
+              />
+              <Text style={[styles.statusText, { color: c.semantic.error }]}>
+                Bia caiu — tocar pra reconectar
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {/* Push-to-talk */}
+      <View style={styles.pushToTalkSection}>
+        <Pressable
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          disabled={!isReady}
+          accessibilityRole="button"
+          accessibilityLabel="Pressione e segure pra falar com Bia"
+          accessibilityState={{ disabled: !isReady, busy: isHeld }}
+          style={({ pressed }) => [
+            styles.micButtonOuter,
+            (pressed || isHeld) && {
+              borderColor: c.primary.deepPurple,
+              backgroundColor: c.neutral.surface,
+            },
+          ]}
+        >
+          {({ pressed }) => {
+            const active = pressed || isHeld;
+            return (
+              <View
+                style={[
+                  styles.micButton,
+                  { backgroundColor: c.neutral.surface },
+                  active && {
+                    backgroundColor: c.primary.purple,
+                    ...cardShadow({ color: c.primary.purple, opacity: 0.4, radius: 12, y: 4 }),
+                  },
+                  !isReady && styles.micButtonDisabled,
+                ]}
+              >
+                {agentStatus === "connecting" ? (
+                  <ActivityIndicator size="small" color={c.primary.purple} />
+                ) : (
+                  <Ionicons
+                    name={active ? "mic" : "mic-outline"}
+                    size={28}
+                    color={
+                      active
+                        ? "#fff"
+                        : isReady
+                          ? c.neutral.textPrimary
+                          : c.neutral.textSecondary
+                    }
+                  />
+                )}
+              </View>
+            );
+          }}
+        </Pressable>
+        <Text
+          style={[
+            styles.pushToTalkLabel,
+            {
+              color: isHeld ? c.primary.purple : c.neutral.textSecondary,
+            },
+          ]}
+        >
+          {isHeld
+            ? "Ouvindo…"
+            : isReady
+              ? "Segure pra falar com Bia"
+              : "Aguardando Bia…"}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function BiaPanelFallback({
+  callStatus,
+  onRetry,
+}: {
+  callStatus: CallStatus;
+  onRetry: () => void;
+}) {
+  const c = useThemeColors();
+  return (
+    <View style={styles.biaPanel}>
+      <View style={styles.statusInline}>
+        {callStatus === "connecting" && (
+          <View style={styles.statusInlineRow}>
+            <ActivityIndicator size="small" color={c.primary.purple} />
+            <Text style={[styles.statusText, { color: c.neutral.textSecondary }]}>
+              Conectando à sala…
+            </Text>
+          </View>
+        )}
+        {callStatus === "error" && (
+          <TouchableOpacity
+            onPress={onRetry}
+            style={styles.statusInlineRow}
+            accessibilityRole="button"
+            accessibilityLabel="Tentar reconectar"
+          >
+            <Ionicons name="refresh-outline" size={18} color={c.semantic.error} />
+            <Text style={[styles.statusText, { color: c.semantic.error }]}>
+              Conexão falhou — tocar pra tentar de novo
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function CaptionBubble({
+  speaker,
+  text,
+  partial,
+}: {
+  speaker: "agent" | "user";
+  text: string;
+  partial?: boolean;
+}) {
+  const c = useThemeColors();
+  const isTeacher = speaker === "agent";
+  return (
+    <View
+      style={[
+        styles.captionBubble,
+        {
+          backgroundColor: isTeacher
+            ? c.primary.purple
+            : c.neutral.elevated,
+          opacity: partial ? 0.85 : 1,
+        },
+      ]}
+    >
+      <Text
+        style={[
+          styles.captionSpeaker,
+          {
+            color: isTeacher ? "rgba(255,255,255,0.8)" : c.neutral.textSecondary,
+          },
+        ]}
+      >
+        {isTeacher ? "Bia" : "Você"}
+      </Text>
+      <Text
+        style={[
+          styles.captionText,
+          { color: isTeacher ? "#fff" : c.neutral.textPrimary },
+        ]}
+      >
+        {text}
+      </Text>
+    </View>
+  );
+}
+
+// Mascote opcional pra quando quiser mostrar Bia "viva" — não usado hoje
+// mas mantido pra customização rápida.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _MascotImage() {
+  return (
+    <Image
+      source={images.mascotWelcome}
+      contentFit="contain"
+      style={{ width: 100, height: 100 }}
+    />
+  );
+}
+
+const styles = StyleSheet.create({
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 18,
+    paddingTop: 6,
+    paddingBottom: 10,
+  },
+  headerTextWrap: {
+    flex: 1,
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 15,
+  },
+  headerSubtitle: {
+    fontFamily: "Poppins-Regular",
+    fontSize: 12,
+    marginTop: 1,
+  },
+  headerRightSpacer: {
+    width: 80,
+    height: 50,
+    justifyContent: "center",
+  },
+  cameraContainer: {
+    flex: 1,
+    marginHorizontal: 16,
+    marginTop: 4,
+    borderRadius: 24,
+    overflow: "hidden",
+    backgroundColor: "#000",
+  },
+  biaPanel: {
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
+  statusInline: {
+    paddingHorizontal: 20,
+    paddingVertical: 6,
+    alignItems: "center",
+  },
+  statusInlineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  statusText: {
+    fontFamily: "Poppins-Medium",
+    fontSize: 12,
+  },
+  captionsContainer: {
+    paddingHorizontal: 16,
+    gap: 6,
+  },
+  captionBubble: {
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    ...cardShadow({ opacity: 0.08, radius: 4, y: 2 }),
+  },
+  captionSpeaker: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 10,
+    marginBottom: 1,
+  },
+  captionText: {
+    fontFamily: "Poppins-Regular",
+    fontSize: 13,
+  },
+  pushToTalkSection: {
+    paddingTop: 6,
+    alignItems: "center",
+    gap: 6,
+  },
+  micButtonOuter: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    borderWidth: 3,
+    borderColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  micButton: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    ...cardShadow({ opacity: 0.12, radius: 8, y: 4, elevation: 4 }),
+  },
+  micButtonDisabled: {
+    opacity: 0.5,
+  },
+  pushToTalkLabel: {
+    fontFamily: "Poppins-Medium",
+    fontSize: 11,
+  },
+  vocabRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  vocabChip: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  vocabLetter: {
+    fontFamily: "Poppins-Bold",
+    fontSize: 16,
+  },
+  finishedWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  finishedEmoji: {
+    fontSize: 64,
+  },
+  finishedTitle: {
+    fontFamily: "Poppins-Bold",
+    fontSize: 26,
+    color: "#fff",
+  },
+  finishedSubtitle: {
+    fontFamily: "Poppins-Regular",
+    fontSize: 14,
+    color: "rgba(255,255,255,0.9)",
+  },
+  notFoundWrap: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 28,
+    gap: 12,
+  },
+  notFoundTitle: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 18,
+  },
+  primaryButton: {
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 14,
+  },
+  primaryButtonText: {
+    color: "#fff",
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 14,
+  },
+});
+
+// `colors` é importado pra usos legados no fallback — não remover sem testar
+// em dispositivo, alguns React Native components leem cor estática no boot.
+void colors;
