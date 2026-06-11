@@ -57,14 +57,20 @@ function LibrasDemoBody() {
   const cameraRef = useRef<CameraView | null>(null);
   const inflightRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Falha esporádica do POST (ex.: 502 do proxy edge, timeout LAN momentâneo)
+  // não deve derrubar o status. Só marca offline após 3 fails seguidos.
+  const failCountRef = useRef(0);
 
   const checkHealth = useCallback(async () => {
     setApiStatus("checking");
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 3500);
+      // Cold start do Vercel edge rewrite pode passar de 3.5s na 1a request.
+      // 10s dá margem antes de declarar offline.
+      const timer = setTimeout(() => controller.abort(), 10000);
       const res = await fetch(`${LIBRAS_API_URL}/health`, {
         signal: controller.signal,
+        cache: "no-store",
       });
       clearTimeout(timer);
       setApiStatus(res.ok ? "online" : "offline");
@@ -95,14 +101,17 @@ function LibrasDemoBody() {
         body: JSON.stringify({ image: photo.base64 }),
       });
       if (!res.ok) {
-        setApiStatus("offline");
+        failCountRef.current += 1;
+        if (failCountRef.current >= 3) setApiStatus("offline");
         return;
       }
       const data: Prediction = await res.json();
+      failCountRef.current = 0;
       setApiStatus("online");
       setPrediction(data);
     } catch {
-      setApiStatus("offline");
+      failCountRef.current += 1;
+      if (failCountRef.current >= 3) setApiStatus("offline");
     } finally {
       inflightRef.current = false;
     }

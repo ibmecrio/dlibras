@@ -79,6 +79,8 @@ export function LibrasCamera({
   const matchedRef = useRef(false);
   const mountedRef = useRef(true);
   const targetRef = useRef(target);
+  // Tolerância a falhas esporádicas do POST (502 momentâneo do edge, etc).
+  const failCountRef = useRef(0);
   // WebSocket connection — só usado se estiver online e conectar.
   const wsRef = useRef<WebSocket | null>(null);
   const wsReadyRef = useRef(false);
@@ -175,9 +177,11 @@ export function LibrasCamera({
     setApiStatus("checking");
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 3500);
+      // 10s pra absorver cold start do Vercel edge rewrite na 1a request.
+      const timer = setTimeout(() => controller.abort(), 10000);
       const res = await fetch(`${LIBRAS_API_URL}/health`, {
         signal: controller.signal,
+        cache: "no-store",
       });
       clearTimeout(timer);
       setApiStatus(res.ok ? "online" : "offline");
@@ -284,13 +288,17 @@ export function LibrasCamera({
       });
       if (!mountedRef.current) return;
       if (!res.ok) {
-        setApiStatus("offline");
+        failCountRef.current += 1;
+        if (failCountRef.current >= 3) setApiStatus("offline");
         return;
       }
       const data: Prediction = await res.json();
+      failCountRef.current = 0;
       handlePredictionResult(data);
     } catch {
-      if (mountedRef.current) setApiStatus("offline");
+      if (!mountedRef.current) return;
+      failCountRef.current += 1;
+      if (failCountRef.current >= 3) setApiStatus("offline");
     } finally {
       inflightRef.current = false;
     }

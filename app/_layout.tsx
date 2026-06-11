@@ -15,7 +15,7 @@ import { Stack, useGlobalSearchParams, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { PostHogProvider } from "posthog-react-native";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY;
 const clerkEnabled = !!publishableKey;
@@ -40,7 +40,18 @@ function ClerkIdentifier() {
 }
 
 function AppStack() {
+  // Gate global de hidratação: SSG do Expo Web pre-renderiza assumindo defaults
+  // (light theme, store vazia, etc). Se qualquer componente baixo na árvore
+  // ler estado persistido do Zustand (XP, theme override, streak…) o 1o paint
+  // cliente diverge do HTML e React levanta erro #418. Renderizando null no
+  // 1o tick e re-rendendo após mount garante consistência sem precisar gatear
+  // cada tela individualmente.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const isDark = useIsDark();
+  if (!mounted) return null;
   return (
     <>
       <StatusBar style={isDark ? "light" : "dark"} />
