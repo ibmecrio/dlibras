@@ -64,3 +64,4 @@ docker/.env.production
 .agents/
 .claude/
 CLAUDE.md
+.vercel

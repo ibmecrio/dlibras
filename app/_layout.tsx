@@ -2,6 +2,7 @@ import "../global.css";
 
 import { AchievementToast } from "@/components/AchievementToast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { IOSInstallBanner } from "@/components/IOSInstallBanner";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { ToastProvider } from "@/components/Toast";
 import { useIsDark } from "@/constants/theme";
@@ -60,6 +61,8 @@ function AppStack() {
       <AchievementToast />
       {/* Banner de offline — aparece no topo de qualquer tela quando sem conexão. */}
       <OfflineBanner />
+      {/* Banner iOS Safari — convida instalar como app na primeira visita. */}
+      <IOSInstallBanner />
     </>
   );
 }

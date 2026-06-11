@@ -31,7 +31,6 @@ services:
     ports:
       - "8802:80"
     volumes:
-      # dist/ vem do host (rsync local → /opt/dlibras/web-dist/)
       - ./web-dist:/usr/share/nginx/html:ro
     networks:
       - dlibras-net
@@ -59,6 +58,25 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+  # Cloudflare Tunnel — dá HTTPS na api sem precisar de domínio, NPM ou Let's Encrypt.
+  # Modo "quick tunnel" (gratis, sem signup): URL muda a cada restart.
+  # Pra URL permanente: criar named tunnel + setar TUNNEL_TOKEN no .env.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: dlibras-cf-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --url http://dlibras-api:8001
+    networks:
+      - dlibras-net
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "cloudflared", "--version"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
 
 volumes:
   dlibras-dbdata:
