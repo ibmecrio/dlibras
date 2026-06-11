@@ -6,6 +6,7 @@
   "framework": null,
   "regions": ["gru1"],
   "rewrites": [
+    { "source": "/dlibras-api/:path*", "destination": "http://187.77.253.138:8801/:path*" },
     { "source": "/((?!.*\\.).*)", "destination": "/index.html" }
   ],
   "headers": [
