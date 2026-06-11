@@ -40,6 +40,11 @@ services:
       timeout: 5s
       retries: 5
 
+  # web service opcional — adicionar quando repo for tornado publico OU
+  # quando deploy key SSH for adicionada no GitHub. Por enquanto o web
+  # vive na Vercel (gratis + CDN global + HTTPS automatico).
+  # Veja server/Dockerfile.web pra a config quando quiser ativar.
+
 volumes:
   dlibras-dbdata:
 
