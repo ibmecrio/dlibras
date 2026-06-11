@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🦊 DLibras
+# DLibras
 
 ### Aprenda a Língua Brasileira de Sinais com câmera, IA e voz natural.
 
@@ -10,20 +10,9 @@ que conversa em português brasileiro com voz neural natural.
 
 ---
 
-[![Made with Expo](https://img.shields.io/badge/Made%20with-Expo%20SDK%2054-1B1F23?style=flat-square&logo=expo)](https://expo.dev)
-[![React Native](https://img.shields.io/badge/React%20Native-0.81-61DAFB?style=flat-square&logo=react)](https://reactnative.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?style=flat-square&logo=typescript)](https://typescriptlang.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com)
-[![MediaPipe](https://img.shields.io/badge/MediaPipe-0.10-4285F4?style=flat-square&logo=google)](https://google.github.io/mediapipe/)
-[![Claude](https://img.shields.io/badge/Anthropic-Claude%20Haiku%204.5-CC785C?style=flat-square&logo=anthropic)](https://anthropic.com)
-[![ElevenLabs](https://img.shields.io/badge/ElevenLabs-Multilingual%20v2-000000?style=flat-square)](https://elevenlabs.io)
-[![AssemblyAI](https://img.shields.io/badge/AssemblyAI-Universal%202-2150F5?style=flat-square)](https://assemblyai.com)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](#-licença)
-[![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen?style=flat-square)](https://github.com/ibmecrio/dlibras/pulls)
-
 ---
 
-| 📱 Mobile | 💻 Web (PWA) | 🎓 Modo Professor | 🤖 Voz Natural |
+|  Mobile |  Web (PWA) |  Modo Professor |  Voz Natural |
 |:---------:|:------------:|:-----------------:|:--------------:|
 | Expo Go / EAS Build | Instalável no Chrome/Safari iOS | Bia ensina cada letra | Claude + ElevenLabs + AssemblyAI |
 
@@ -31,46 +20,39 @@ que conversa em português brasileiro com voz neural natural.
 
 ---
 
-> **TL;DR** — Projeto de TCC (IBMEC RJ) que une Computer Vision + LLM + TTS + STT pra criar
-> um app de ensino de Libras estilo Duolingo. Funciona em todo lugar (iOS, Android, Web).
-> Reconhece 21 letras estáticas (A–W) em tempo real via WebSocket, tem mascote IA que
-> explica gesto a gesto e responde perguntas por voz. Implementa hearts, streak, achievements,
-> quiz, heatmap A–Z, theme light/dark, i18n pt-BR/en/es, push notifications, offline mode e PWA.
-> Backend em FastAPI separado com 6 modelos ML (KNN + SVM + MLP + RF + LR + Ensemble).
-> Deploy via Docker Compose (web + api + Postgres + nginx + Let's Encrypt).
 
 ---
 
-## 📑 Índice
+## Índice
 
-1. [🦊 DLibras](#-dlibras)
-2. [🎯 Demo & Screenshots](#-demo--screenshots)
-3. [✨ Por que o DLibras existe](#-por-que-o-dlibras-existe)
-4. [⚡ Quick Start (5 minutos)](#-quick-start-5-minutos)
-5. [🏛️ Arquitetura](#️-arquitetura)
-6. [🧱 Stack tecnológica](#-stack-tecnológica)
-7. [📚 Bibliotecas: deep dive por categoria](#-bibliotecas-deep-dive-por-categoria)
-8. [🗂️ Estrutura do projeto](#️-estrutura-do-projeto)
-9. [🧬 Walkthrough do código (arquivos chave)](#-walkthrough-do-código-arquivos-chave)
-10. [🎮 Features (catálogo completo)](#-features-catálogo-completo)
-11. [🖼️ UX flows (passo-a-passo)](#️-ux-flows-passo-a-passo)
-12. [⚙️ Development guide](#️-development-guide)
-13. [🧪 Testing](#-testing)
-14. [🚀 Deploy](#-deploy)
-15. [🌐 APIs — referência completa](#-apis--referência-completa)
-16. [📖 Glossário](#-glossário-ordem-alfabética)
-17. [🎓 TCC — Trabalho de Conclusão de Curso](#-tcc--trabalho-de-conclusão-de-curso)
-18. [🛣️ Roadmap & Trabalhos futuros](#️-roadmap--trabalhos-futuros)
-19. [🤝 Como contribuir](#-como-contribuir)
-20. [📄 Licença](#-licença)
-21. [🙏 Agradecimentos](#-agradecimentos)
-22. [📞 Contato](#-contato)
+1. [ DLibras]((#-dlibras))
+2. [ Demo & Screenshots]((#-demo--screenshots))
+3. [ Por que o DLibras existe]((#-por-que-o-dlibras-existe))
+4. [ Quick Start]((#-quick-start-5-minutos))
+5. [ Arquitetura]((#-arquitetura))
+6. [ Stack tecnológica]((#-stack-tecnológica))
+7. [ Bibliotecas: deep dive por categoria]((#-bibliotecas-deep-dive-por-categoria))
+8. [ Estrutura do projeto]((#-estrutura-do-projeto))
+9. [ Walkthrough do código (arquivos chave)]((#-walkthrough-do-código-arquivos-chave))
+10. [ Features (catálogo completo)]((#-features-catálogo-completo))
+11. [ UX flows (passo-a-passo)]((#-ux-flows-passo-a-passo))
+12. [ Development guide]((#-development-guide))
+13. [ Testing]((#-testing))
+14. [ Deploy]((#-deploy))
+15. [ APIs — referência completa]((#-apis--referência-completa))
+16. [ Glossário]((#-glossário-ordem-alfabética))
+17. [ TCC — Trabalho de Conclusão de Curso]((#-tcc--trabalho-de-conclusão-de-curso))
+18. [ Roadmap & Trabalhos futuros]((#-roadmap--trabalhos-futuros))
+19. [ Como contribuir]((#-como-contribuir))
+20. [ Licença]((#-licença))
+21. [ Agradecimentos]((#-agradecimentos))
+22. [ Contato]((#-contato))
 
 ---
 
-## 🎯 Demo & Screenshots
+## Demo & Screenshots
 
-> 📹 **Vídeo demo**: [`youtu.be/...`](https://youtu.be/) _(adicionar)_
+>  **Vídeo demo**: [`youtu.be/...`](https://youtu.be/) _(adicionar)_
 
 | Home (mapa de lições) | Lição com Bia | Reconhecimento da câmera |
 |:---------------------:|:-------------:|:------------------------:|
@@ -82,16 +64,16 @@ que conversa em português brasileiro com voz neural natural.
 
 ---
 
-## ✨ Por que o DLibras existe
+## Por que o DLibras existe
 
 A Língua Brasileira de Sinais (Libras) é a **segunda língua oficial do Brasil** (Lei nº 10.436/2002),
 falada por aproximadamente **10 milhões de brasileiros** com algum grau de deficiência auditiva
 (IBGE, Censo Demográfico). Apesar disso, o ensino de Libras enfrenta barreiras:
 
-- 📚 **Materiais didáticos limitados** e pouco interativos
-- 👨‍🏫 **Poucos professores ouvintes fluentes**
-- 💸 **Custo alto** de cursos presenciais
-- ❌ **Nenhum app gratuito** com feedback em tempo real por câmera
+-  **Materiais didáticos limitados** e pouco interativos
+-  **Poucos professores ouvintes fluentes**
+-  **Custo alto** de cursos presenciais
+-  **Nenhum app gratuito** com feedback em tempo real por câmera
 
 **DLibras** ataca isso unindo três frentes técnicas:
 
@@ -104,18 +86,18 @@ falada por aproximadamente **10 milhões de brasileiros** com algum grau de defi
 
 | Plataforma | Status | Acesso |
 |------------|--------|--------|
-| 📱 **iOS** (Expo Go + EAS) | ✅ Funciona | `exp://192.168.x.x:8081` |
-| 🤖 **Android** (Expo Go + EAS) | ✅ Funciona | `exp://192.168.x.x:8081` |
-| 💻 **Web** (PWA instalável) | ✅ Funciona | `http://localhost:8081` |
-| 🥽 **Reconhecimento real-time** | ✅ WebSocket + 6 modelos ML | latência <100ms |
-| 🦊 **Tutor IA** | ✅ Claude + ElevenLabs + AssemblyAI | voz feminina pt-BR |
-| 🌍 **i18n** | ✅ pt-BR / en / es | troca instantânea |
-| 🌓 **Theme** | ✅ light / dark / system | respeitando OS |
-| ♿ **A11y** | ✅ Reduce motion, error boundary, VoiceOver | WCAG 2.1 alvo |
+|  **iOS** (Expo Go + EAS) |  Funciona | `exp://192.168.x.x:8081` |
+|  **Android** (Expo Go + EAS) |  Funciona | `exp://192.168.x.x:8081` |
+|  **Web** (PWA instalável) |  Funciona | `http://localhost:8081` |
+|  **Reconhecimento real-time** |  WebSocket + 6 modelos ML | latência <100ms |
+|  **Tutor IA** |  Claude + ElevenLabs + AssemblyAI | voz feminina pt-BR |
+|  **i18n** |  pt-BR / en / es | troca instantânea |
+|  **Theme** |  light / dark / system | respeitando OS |
+|  **A11y** |  Reduce motion, error boundary, VoiceOver | WCAG 2.1 alvo |
 
 ---
 
-## ⚡ Quick Start (5 minutos)
+## Quick Start
 
 > **Pré-requisitos**: Node 20+, pnpm 10+, Python 3.10–3.13 (não 3.14), Expo Go no celular.
 
@@ -127,7 +109,7 @@ git clone https://github.com/ibmecrio/Digital-Inclusion-and-Accessibility-A-Comp
 # 2. Frontend
 cd dlibras
 pnpm install --shamefully-hoist
-cp .env.example .env   # edite com suas keys (ver §⚙️ Development guide)
+cp .env.example .env   # edite com suas keys (ver § Development guide)
 
 # 3. Backend (em outro terminal)
 cd ../libras-vision
@@ -142,9 +124,9 @@ pnpm exec expo start --host lan --clear --web
 
 | Acesso | URL |
 |--------|-----|
-| 💻 Web | http://localhost:8081 |
-| 📱 Mobile | scan o QR no Expo Go |
-| 🎥 Vision API | http://localhost:8001/health |
+|  Web | http://localhost:8081 |
+|  Mobile | scan o QR no Expo Go |
+|  Vision API | http://localhost:8001/health |
 
 > Caso a câmera no Web não funcione, abra exatamente em `http://localhost:8081` (não em IP da LAN — getUserMedia bloqueia).
 
@@ -359,7 +341,7 @@ sequenceDiagram
     U->>AB: press in no mic (Pressable onPressIn)
     AB->>AB: stopSpeaking()<br/>setRecording(true)
     AB->>STT: startPromiseRef = startRecording()
-    STT->>STT: ensureMicPermission()<br/>(web: isSecureContext; native: Audio.requestPermissionsAsync)
+    STT->>STT: ensureMicPermission()<br/>(web: isSecureContext, native: Audio.requestPermissionsAsync)
     alt web
         STT->>MR: navigator.mediaDevices.getUserMedia({audio:true})<br/>+ new MediaRecorder + recorder.start(100)
     else native
@@ -400,7 +382,7 @@ sequenceDiagram
     end
     VC->>VC: playFromBase64(b64, "audio/mpeg")
     alt web
-        VC-->>U: new Audio(data:audio/mpeg;base64,…).play()
+        VC-->>U: new Audio(data:audio/mpeg,base64,…).play()
     else native
         VC-->>U: Audio.Sound.createAsync + shouldPlay
     end
@@ -665,7 +647,7 @@ O `nginx.conf` faz tres roteamentos: `location /` -> `web`, `location /api/*` e 
 | Auth wrapper (Clerk + demo) | `lib/auth.ts` |
 | Estado persistido | `store/learningStore.ts` |
 | Backend de visao | `Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition/api_server.py` |
-# 🧱 Stack tecnológica
+# Stack tecnológica
 
 A DLibras é um monorepo prático que combina três cabeças bem distintas: um app Expo (mobile + web), uma API FastAPI com visão computacional clássica e uma camada de integrações de IA (Claude, ElevenLabs, AssemblyAI). Cada decisão de stack foi feita pensando em prazo de TCC, custo (free tier sempre que possível) e a possibilidade de rodar o app inteiro em modo demo sem nenhuma chave.
 
@@ -756,7 +738,7 @@ As tabelas abaixo são organizadas por camada — versões extraídas direto do 
 
 ---
 
-# 📚 Bibliotecas: deep dive por categoria
+# Bibliotecas: deep dive por categoria
 
 ## Visão computacional
 
@@ -1019,8 +1001,8 @@ Em vez de puxar `i18next + react-i18next` (≈80kb com adapter de RN), a DLibras
 
 ```ts
 const dict: Record<Locale, Record<string, string>> = {
-  "pt-BR": { "tab.home": "Início", "home.greeting": "Olá, {name}! 👋", /* ... */ },
-  "en":    { "tab.home": "Home",   "home.greeting": "Hi, {name}! 👋",  /* ... */ },
+  "pt-BR": { "tab.home": "Início", "home.greeting": "Olá, {name}! ", /* ... */ },
+  "en":    { "tab.home": "Home",   "home.greeting": "Hi, {name}! ",  /* ... */ },
   "es":    { /* ... */ },
 };
 
@@ -1034,7 +1016,7 @@ Interpolação simples `{name}` via regex. Fallback em cascata: `locale → pt-B
 
 ---
 
-# 🗂️ Estrutura do projeto
+# Estrutura do projeto
 
 ```
 react-native-lingua/
@@ -1167,7 +1149,7 @@ react-native-lingua/
 
 ---
 
-# 🧬 Walkthrough do código (arquivos chave)
+# Walkthrough do código (arquivos chave)
 
 ## 1. `app/_layout.tsx`
 
@@ -1529,7 +1511,7 @@ DLibras é um app de ensino de Língua Brasileira de Sinais (Libras) com câmera
 | Hearts ilimitados (modo demo) | Toggle na sheet do header (tap no ícone de coração). Desabilita desconto e mostra símbolo ∞. Persiste entre sessões. Ideal pra apresentação de banca. | `HeartsDisplay.tsx` (`unlimitedHearts`) |
 | 12 conquistas (achievements) | Computadas localmente sem backend — função pura sobre o store. Grid 3-colunas no perfil mostrando badges desbloqueadas em cores; bloqueadas em cinza. | `data/achievements.ts`, `components/AchievementGrid.tsx` |
 | Quiz de revisão | 5 perguntas multipla-escolha (4 alternativas). "Qual letra é essa?" + emoji + pronunciation. +5 XP por acerto. Confete se acertar 5/5. | `app/quiz.tsx` |
-| Daily goal celebration | Modal 🏆 + ConfettiCannon (140 partículas) que dispara automaticamente UMA vez por dia ao bater a meta. Persiste flag `lastDailyGoalCelebrated`. | `components/DailyGoalCelebration.tsx` |
+| Daily goal celebration | Modal  + ConfettiCannon (140 partículas) que dispara automaticamente UMA vez por dia ao bater a meta. Persiste flag `lastDailyGoalCelebrated`. | `components/DailyGoalCelebration.tsx` |
 | XpFloat popup | Pill flutuante "+X XP" com sparkles, slide up + fade out (~1.5s). Aparece no fim da lição e no quiz. | `components/XpFloat.tsx` |
 | Lesson preview modal | Bottom sheet antes de começar lição: XP a ganhar, número de letras, hearts disponíveis, emojis de cada letra. Bloqueia start se hearts === 0. | `components/LessonPreviewModal.tsx` |
 
@@ -1583,7 +1565,7 @@ Bia é a mascote/professora. Tem 3 modos de interação, todos opcionais (precis
 | Push-to-talk | Segurar mic na lição (modo voz) ou no `/ask-bia` | AssemblyAI transcreve áudio pt-BR (real-time API com `language_code: pt`) → Claude responde (max 280 tokens, com system prompt da Bia) → ElevenLabs fala a resposta. |
 | Chat livre `/ask-bia` | Botão "Pergunte pra Bia" no glossário | Histórico persistido em `biaConversations` (Zustand store v5+), múltiplas conversas, "nova conversa", listagem das anteriores no time-icon do header. Excluir conversa individual ou todas. |
 
-Visualmente: **MascotBubble** flutua no canto direito do header da lição com bobbing + balão de fala (mensagem rotativa por progresso). Em `/ask-bia` o mascote 🦊 aparece como avatar nas bolhas de assistente.
+Visualmente: **MascotBubble** flutua no canto direito do header da lição com bobbing + balão de fala (mensagem rotativa por progresso). Em `/ask-bia` o mascote  aparece como avatar nas bolhas de assistente.
 
 ### Sugestões automáticas no chat
 
@@ -1608,7 +1590,7 @@ A aba Chat (renomeada visualmente como "Glossário") é um índice navegável de
 |---|---|
 | Busca incremental | Filtro em runtime por letra, tradução ou pronunciation. Case-insensitive. |
 | Filtro por unidade | Chips no topo: Tudo · Alfabeto manual · Soletrar palavras · Letras com movimento. |
-| Favoritas (⭐) | Tap na estrela favorita a letra. Filtro "⭐ N" mostra só favoritas (N = contador). Favoritas sobem ao topo da lista. Persiste em `favoriteLetters` no store. |
+| Favoritas () | Tap na estrela favorita a letra. Filtro " N" mostra só favoritas (N = contador). Favoritas sobem ao topo da lista. Persiste em `favoriteLetters` no store. |
 | TTS por letra | Tap em qualquer linha fala a letra via `expo-speech`. |
 | Atalho pra câmera | Ícone de vídeo na linha leva direto pro `/libras-demo` (leitor livre) pra praticar aquela letra. |
 | Empty state | "Nada encontrado pra X" + dica pra buscar por letra. |
@@ -1738,7 +1720,7 @@ Fluxos completos, mapeando cada tela e o arquivo responsável. Use isso como gui
 
 | # | Ação | Arquivo |
 |---|---|---|
-| 1 | Profile → seção Preferências → linha "Idioma" → chips 🇧🇷 PT · 🇺🇸 EN · 🇪🇸 ES. | `app/(tabs)/profile.tsx:324-355` |
+| 1 | Profile → seção Preferências → linha "Idioma" → chips  PT ·  EN ·  ES. | `app/(tabs)/profile.tsx:324-355` |
 | 2 | Tap em chip → `setLocale(code)` no store. `useT()` rerendera todas as strings traduzidas. | `lib/i18n.ts` |
 | 3 | Strings cobertas: navegação (back, close), perfil (audio, language, notifications), Bia (placeholder, thinking, history, newChat, empty), profile sections. | `lib/i18n.ts` (TRANSLATIONS) |
 
@@ -1891,11 +1873,11 @@ pip install -r requirements.txt
 # Run
 python api_server.py
 # Endpoints:
-#   GET  /health                       → { status: "ok", model: "knn", ... }
-#   POST /predict                      → { letter, confidence }  body: { image: base64 }
-#   WS   /predict-ws                   → bidirecional (envia frame, recebe predict)
-#   POST /predict-motion               → recebe 12 frames + heurística pra J/Z
-#   GET  /models                       → lista modelos disponíveis
+# GET  /health                       → { status: "ok", model: "knn", ... }
+# POST /predict                      → { letter, confidence }  body: { image: base64 }
+# WS   /predict-ws                   → bidirecional (envia frame, recebe predict)
+# POST /predict-motion               → recebe 12 frames + heurística pra J/Z
+# GET  /models                       → lista modelos disponíveis
 
 # Re-treinar KNN com novo dataset
 python knn_model.py
@@ -2132,7 +2114,7 @@ Migration helper: `version: 5` no persist config. Cada vez que muda shape do sto
 - **PostHog tracking** em ações relevantes: `lesson_started`, `lesson_completed`, `quiz_answer`, `bia_chat_message_sent`, etc. — sempre com props como `lesson_id`, `xp_reward`, `duration_seconds`.
 - **Refs pra timers** com cleanup no return do useEffect. Padrão `advanceTimerRef.current = setTimeout(...)` + `if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current)`.
 - **`safeBack(router)`** ao invés de `router.back()` direto — verifica se há histórico antes; se não, vai pra home.
-## 🚀 Deploy
+## Deploy
 
 DLibras é arquitetado com **separação clara entre frontend e backend** pra permitir deploy
 independente em provedores otimizados pra cada workload:
@@ -2149,7 +2131,7 @@ independente em provedores otimizados pra cada workload:
 
 ---
 
-### 🌐 Deploy do frontend Web (Vercel)
+### Deploy do frontend Web (Vercel)
 
 #### 1. Criar conta + instalar CLI
 
@@ -2207,7 +2189,7 @@ vercel env add EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY production
 # pk_live_... (NÃO o test key)
 ```
 
-⚠️ **Importante**: em modo `USE_PROXY=true`, **não** coloque as keys de Anthropic / ElevenLabs / AssemblyAI
+ **Importante**: em modo `USE_PROXY=true`, **não** coloque as keys de Anthropic / ElevenLabs / AssemblyAI
 na Vercel — elas vivem no servidor (VPS). A Vercel só precisa saber a URL da API.
 
 #### 4. Deploy
@@ -2237,7 +2219,7 @@ Conecte o repo `ibmecrio/dlibras` no Vercel → cada `git push origin main` faz 
 
 ---
 
-### 🐳 Deploy do backend (VPS + Docker)
+### Deploy do backend (VPS + Docker)
 
 **Topologia**: 5 serviços via `docker-compose`:
 
@@ -2384,7 +2366,7 @@ cd /opt/dlibras && docker compose build api && docker compose up -d api
 
 ---
 
-### 📱 Deploy do app mobile (EAS Build)
+### Deploy do app mobile (EAS Build)
 
 #### 1. Instalar EAS CLI
 
@@ -2444,7 +2426,7 @@ eas submit -p android --latest
 
 ---
 
-### 🔐 Configurando CORS pro front falar com a API
+### Configurando CORS pro front falar com a API
 
 Após deploy do front (Vercel), atualize `DLIBRAS_ALLOWED_ORIGINS` no `.env.production` da VPS pra incluir os domínios do front:
 
@@ -2471,7 +2453,7 @@ Deve retornar `Access-Control-Allow-Origin: https://web.dlibras.app`.
 
 ---
 
-### 💰 Custos estimados (mensal)
+### Custos estimados (mensal)
 
 | Serviço | Free tier | Plano pago p/ 1k MAU |
 |---------|-----------|----------------------|
@@ -2489,7 +2471,7 @@ Deve retornar `Access-Control-Allow-Origin: https://web.dlibras.app`.
 
 ---
 
-### 🩹 Troubleshooting deploy
+### Troubleshooting deploy
 
 | Sintoma | Solução |
 |---------|---------|
@@ -2503,7 +2485,7 @@ Deve retornar `Access-Control-Allow-Origin: https://web.dlibras.app`.
 | Push notif funciona dev mas não prod | EAS Build é obrigatório, Expo Go não permite. |
 
 ---
-# 📖 Glossário (ordem alfabética)
+# Glossário (ordem alfabética)
 
 > Dicionário rápido pra qualquer termo, sigla ou tecnologia que aparece no DLibras. Útil pra banca, novos contribuidores e quem quer só passar o olho.
 
@@ -2721,7 +2703,7 @@ Deve retornar `Access-Control-Allow-Origin: https://web.dlibras.app`.
 
 ---
 
-# 🌐 APIs — referência completa
+# APIs — referência completa
 
 DLibras consome 4 APIs externas + expõe seu próprio backend de visão. Esta seção documenta cada uma com método, payload, resposta e exemplo cURL.
 
@@ -3156,7 +3138,7 @@ curl -s "https://api.assemblyai.com/v2/transcript/$ID" \
 
 ---
 
-# 🎓 TCC — Trabalho de Conclusão de Curso
+# TCC — Trabalho de Conclusão de Curso
 
 ## Contexto institucional
 
@@ -3196,8 +3178,8 @@ Construir um app cross-platform (iOS, Android, Web/PWA) que ensine o alfabeto ma
 
 | ODS | Título | Como o DLibras contribui |
 |-----|--------|--------------------------|
-| 🎓 **4** | Educação de qualidade | Democratiza o acesso ao ensino de LIBRAS — qualquer um com um celular pode aprender |
-| 🤝 **10** | Redução das desigualdades | Ferramenta gratuita pra comunidade surda e seus familiares; remove barreiras de comunicação |
+|  **4** | Educação de qualidade | Democratiza o acesso ao ensino de LIBRAS — qualquer um com um celular pode aprender |
+|  **10** | Redução das desigualdades | Ferramenta gratuita pra comunidade surda e seus familiares; remove barreiras de comunicação |
 
 > _"Garantir educação inclusiva, equitativa e de qualidade, e promover oportunidades de aprendizagem ao longo da vida pra todos."_
 > — ONU, Agenda 2030, Objetivo 4
@@ -3262,7 +3244,7 @@ Construir um app cross-platform (iOS, Android, Web/PWA) que ensine o alfabeto ma
 
 ---
 
-# 📄 Licença
+# Licença
 
 ```
 MIT License
@@ -3290,7 +3272,7 @@ SOFTWARE.
 
 ---
 
-# 🙏 Agradecimentos
+# Agradecimentos
 
 Agradecimentos especiais a:
 
@@ -3304,25 +3286,25 @@ Agradecimentos especiais a:
 
 ---
 
-# 📞 Contato
+# Contato
 
 | Canal | Link |
 |-------|------|
-| 📧 Email | [aquilesguerretta@gmail.com](mailto:aquilesguerretta@gmail.com) |
-| 💻 Repositório (app) | [github.com/ibmecrio/dlibras](https://github.com/ibmecrio/dlibras) |
-| 🔬 Repositório (backend de visão) | [github.com/ibmecrio/Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition](https://github.com/ibmecrio/Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition) |
-| 🏛️ Instituição | IBMEC RJ |
+|  Email | [aquilesguerretta@gmail.com](mailto:aquilesguerretta@gmail.com) |
+|  Repositório (app) | [github.com/ibmecrio/dlibras](https://github.com/ibmecrio/dlibras) |
+|  Repositório (backend de visão) | [github.com/ibmecrio/Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition](https://github.com/ibmecrio/Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition) |
+|  Instituição | IBMEC RJ |
 
 Issues, PRs e discussões são bem-vindos. Pra reportar bug ou pedir feature, abra uma issue no repo principal.
 
 ---
 
-> _"Feito com ♥ no Rio de Janeiro."_
+> _"Feito com  no Rio de Janeiro."_
 > — Anderson Lima, 2026
 
 ---
 
-## 🛣️ Roadmap & Trabalhos futuros
+## Roadmap & Trabalhos futuros
 
 ### Curto prazo (próximas 2 semanas)
 - [ ] Treinar **LSTM motion model** real pra J e Z (hoje usa heurística de trajetória)
@@ -3348,7 +3330,7 @@ Issues, PRs e discussões são bem-vindos. Pra reportar bug ou pedir feature, ab
 
 ---
 
-## 🤝 Como contribuir
+## Como contribuir
 
 Contribuições são MUITO bem-vindas! O projeto é aberto e queremos que cresça com a comunidade.
 
@@ -3363,12 +3345,12 @@ Contribuições são MUITO bem-vindas! O projeto é aberto e queremos que cresç
 
 ### Áreas onde precisamos mais ajuda
 
-- 🎨 **Design / UX**: artwork pro mascote, ícones, splash screens
-- 🧠 **Computer Vision**: treinar modelos melhores, dataset diversificado
-- ♿ **Acessibilidade**: testes com VoiceOver/TalkBack reais
-- 📚 **Conteúdo**: mais lições, frases, exemplos
-- 🌍 **Tradução**: revisão das strings en/es por nativos
-- 🐛 **Bug reports**: reporta tudo que encontrar
+-  **Design / UX**: artwork pro mascote, ícones, splash screens
+-  **Computer Vision**: treinar modelos melhores, dataset diversificado
+-  **Acessibilidade**: testes com VoiceOver/TalkBack reais
+-  **Conteúdo**: mais lições, frases, exemplos
+-  **Tradução**: revisão das strings en/es por nativos
+-  **Bug reports**: reporta tudo que encontrar
 
 ### Code style
 
@@ -3380,29 +3362,22 @@ Contribuições são MUITO bem-vindas! O projeto é aberto e queremos que cresç
 
 ---
 
-## 📞 Contato
+## Contato
 
 | Canal | Link |
 |-------|------|
-| 📧 Email | aquilesguerretta@gmail.com |
-| 🐙 GitHub Issues | https://github.com/ibmecrio/dlibras/issues |
-| 💬 Discussions | https://github.com/ibmecrio/dlibras/discussions |
-| 🎥 Backend repo (vision) | https://github.com/ibmecrio/Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition |
+|  Email | aquilesguerretta@gmail.com |
+|  GitHub Issues | https://github.com/ibmecrio/dlibras/issues |
+|  Discussions | https://github.com/ibmecrio/dlibras/discussions |
+|  Backend repo (vision) | https://github.com/ibmecrio/Digital-Inclusion-and-Accessibility-A-Computer-Vision-Model-for-Automated-Libras-Recognition |
 
 ---
 
 <div align="center">
 
-### 🦊 DLibras
+### DLibras
 
 **Aprenda Libras. Inclusão digital. Open source.**
 
-Construído com ❤️ no Brasil 🇧🇷 · Anderson Lima · 2026
-
-[![Stars](https://img.shields.io/github/stars/ibmecrio/dlibras?style=social)](https://github.com/ibmecrio/dlibras)
-[![Forks](https://img.shields.io/github/forks/ibmecrio/dlibras?style=social)](https://github.com/ibmecrio/dlibras/fork)
-[![Watch](https://img.shields.io/github/watchers/ibmecrio/dlibras?style=social)](https://github.com/ibmecrio/dlibras)
-
-_Last updated: 2026-06-11_
 
 </div>
