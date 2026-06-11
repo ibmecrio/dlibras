@@ -1,20 +1,210 @@
 <div align="center">
 
-# DLibras
+# 🦊 DLibras
 
 ### Aprenda a Língua Brasileira de Sinais com câmera, IA e voz natural.
 
-Um app **cross-platform** (iOS · Android · Web · PWA) estilo Duolingo que ensina o alfabeto manual da Libras
-em tempo real usando reconhecimento por câmera (MediaPipe + scikit-learn) e uma professora IA chamada **Bia**
-que conversa em português brasileiro com voz neural natural.
+**Cross-platform** (iOS · Android · Web · PWA) · Estilo Duolingo · Reconhecimento por câmera em tempo real · Professora IA com voz neural
+
+[![Production](https://img.shields.io/badge/status-em%20producao-22c55e?style=for-the-badge)](http://187.77.253.138:8802)
+[![Web Deploy](https://img.shields.io/badge/vercel-dlibras.vercel.app-000?style=for-the-badge&logo=vercel)](https://dlibras.vercel.app)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow?style=for-the-badge)](#-licença)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=for-the-badge)](#-como-contribuir)
+
+</div>
 
 ---
 
-|  Mobile |  Web (PWA) |  Modo Professor |  Voz Natural |
-|:---------:|:------------:|:-----------------:|:--------------:|
-| Expo Go / EAS Build | Instalável no Chrome/Safari iOS | Bia ensina cada letra | Claude + ElevenLabs + AssemblyAI |
+<div align="center">
+
+### Stack técnica · versões exatas em produção
 
 </div>
+
+<table align="center">
+<tr>
+<td align="center" valign="top" width="33%">
+
+#### Frontend / Mobile
+
+![Expo](https://img.shields.io/badge/Expo-SDK_54-000020?logo=expo&logoColor=white)
+![React Native](https://img.shields.io/badge/React_Native-0.81.5-61DAFB?logo=react&logoColor=white)
+![React](https://img.shields.io/badge/React-19.1.0-61DAFB?logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)
+![Expo Router](https://img.shields.io/badge/Expo_Router-6.0-000020?logo=expo&logoColor=white)
+![NativeWind](https://img.shields.io/badge/NativeWind-5.0_preview-38BDF8?logo=tailwindcss&logoColor=white)
+![Tailwind](https://img.shields.io/badge/Tailwind-v4-06B6D4?logo=tailwindcss&logoColor=white)
+![Reanimated](https://img.shields.io/badge/Reanimated-4.1-DC322F)
+![Zustand](https://img.shields.io/badge/Zustand-5.0-433E38)
+![Clerk](https://img.shields.io/badge/Clerk-3.2-6C47FF?logo=clerk&logoColor=white)
+
+</td>
+<td align="center" valign="top" width="33%">
+
+#### Backend / Vision
+
+![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![MediaPipe](https://img.shields.io/badge/MediaPipe-0.10-0097A7?logo=google&logoColor=white)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-1.5-F7931E?logo=scikit-learn&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.4-EE4C2C?logo=pytorch&logoColor=white)
+![Postgres](https://img.shields.io/badge/Postgres-16-4169E1?logo=postgresql&logoColor=white)
+![Uvicorn](https://img.shields.io/badge/Uvicorn-0.30-499848)
+![slowapi](https://img.shields.io/badge/slowapi-0.1.9-blue)
+![psycopg](https://img.shields.io/badge/psycopg-3.2-blue)
+![NumPy](https://img.shields.io/badge/NumPy-2.0-013243?logo=numpy&logoColor=white)
+
+</td>
+<td align="center" valign="top" width="33%">
+
+#### IA / Infra
+
+![Anthropic](https://img.shields.io/badge/Claude_Haiku-4.5-D97757?logo=anthropic&logoColor=white)
+![ElevenLabs](https://img.shields.io/badge/ElevenLabs-Multilingual_v2-000)
+![AssemblyAI](https://img.shields.io/badge/AssemblyAI-Universal--2-3FB1FC)
+![Docker](https://img.shields.io/badge/Docker-29.3-2496ED?logo=docker&logoColor=white)
+![nginx](https://img.shields.io/badge/nginx-alpine-009639?logo=nginx&logoColor=white)
+![NPM Proxy](https://img.shields.io/badge/Nginx_Proxy_Manager-v2-009639)
+![Vercel](https://img.shields.io/badge/Vercel-CDN-000?logo=vercel&logoColor=white)
+![PostHog](https://img.shields.io/badge/PostHog-Analytics-1D4AFF?logo=posthog&logoColor=white)
+![Ubuntu](https://img.shields.io/badge/VPS_Ubuntu-24.04_LTS-E95420?logo=ubuntu&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/CI-GitHub_Actions-2088FF?logo=github-actions&logoColor=white)
+
+</td>
+</tr>
+</table>
+
+---
+
+<div align="center">
+
+### Acessos em produção
+
+| Camada | URL | Status |
+|:------:|:---:|:------:|
+| 🌐 **Web** (Vercel) | [`dlibras.vercel.app`](https://dlibras.vercel.app) | 🟢 Up |
+| 🖥️ **Web** (VPS) | [`187.77.253.138:8802`](http://187.77.253.138:8802) | 🟢 Up |
+| 🧠 **API** (FastAPI) | [`187.77.253.138:8801/health`](http://187.77.253.138:8801/health) | 🟢 Up |
+| 📊 **Health detalhado** | [`/health/v2`](http://187.77.253.138:8801/health/v2) | 🟢 Up |
+| 📱 **Mobile** (Expo Go) | `exp://192.168.x.x:8081` | dev |
+| 🗄️ **Postgres 16** | interno docker network | 🟢 healthy |
+
+</div>
+
+---
+
+<div align="center">
+
+### Tabela completa de dependências por categoria
+
+</div>
+
+#### Mobile & Web (React Native + Expo)
+
+| Lib | Versão | Função |
+|-----|--------|--------|
+| `expo` | `54.0.33` | Runtime + tooling cross-platform |
+| `react-native` | `0.81.5` | Framework base mobile |
+| `react` | `19.1.0` | UI library |
+| `expo-router` | `6.0.23` | Roteamento file-based |
+| `nativewind` | `5.0.0-preview.3` | Tailwind para RN |
+| `@tailwindcss/postcss` | `4.3.0` | Build do CSS atomic |
+| `react-native-reanimated` | `4.1.1` | Animações 120fps |
+| `react-native-gesture-handler` | `2.28.0` | Gestos nativos |
+| `react-native-screens` | `4.16.0` | Screens nativas |
+| `react-native-safe-area-context` | `5.6.0` | Safe area + notch |
+| `react-native-svg` | `15.15.5` | SVG renderer |
+| `react-native-confetti-cannon` | `1.5.2` | Confete celebração XP |
+| `react-native-gifted-charts` | `1.4.77` | Gráficos (BarChart XP) |
+
+#### Câmera, Áudio & Sensores
+
+| Lib | Versão | Função |
+|-----|--------|--------|
+| `expo-camera` | `17.0.8` | Captura de frames pra reconhecimento |
+| `expo-av` | `16.0.8` | Gravação de áudio nativo (mic) |
+| `expo-speech` | `14.0.8` | TTS fallback do sistema |
+| `expo-haptics` | `15.0.8` | Feedback tátil (vibração curta) |
+| `expo-image` | `3.0.11` | Image otimizada (cache, blurhash) |
+| `expo-notifications` | `56.0.17` | Push notif diárias |
+
+#### Autenticação & Estado
+
+| Lib | Versão | Função |
+|-----|--------|--------|
+| `@clerk/expo` | `3.2.10` | OAuth + sessão JWT |
+| `expo-secure-store` | `15.0.8` | Token storage (Keychain/Keystore) |
+| `expo-auth-session` | `7.0.11` | OAuth providers (Google, Apple) |
+| `zustand` | `5.0` | State management com persist |
+| `@react-native-async-storage/async-storage` | `2.2.0` | Persistência do Zustand |
+| `@react-native-community/netinfo` | `11.4.1` | Detecção online/offline |
+
+#### Backend Python (FastAPI)
+
+| Lib | Versão | Função |
+|-----|--------|--------|
+| `fastapi` | `0.115.0` | Web framework async |
+| `uvicorn[standard]` | `0.30.6` | ASGI server (2 workers) |
+| `mediapipe` | `0.10.x` | HandLandmarker (21 pontos por mão) |
+| `scikit-learn` | `1.5.x` | KNN + SVM + MLP + RF + LR |
+| `torch` | `2.4.x` | LSTM motion model (J, Z, H, K, X) |
+| `numpy` | `2.0.x` | Operações matriciais |
+| `Pillow` | `10.x` | Decodificação JPEG/PNG |
+| `joblib` | `1.4.x` | Serialização modelos sklearn |
+| `psycopg[binary]` | `3.2.3` | Driver Postgres async |
+| `slowapi` | `0.1.9` | Rate limiting por IP |
+| `python-multipart` | `0.0.9` | Upload de arquivos |
+
+#### Inteligência Artificial (APIs externas)
+
+| Provedor | Modelo / Voz | Função | Custo demo |
+|----------|--------------|--------|------------|
+| **Anthropic Claude** | `claude-haiku-4-5-20251001` | Bia conversa em pt-BR | ~$0.001 por turno |
+| **ElevenLabs** | `eleven_multilingual_v2` + voice `Lily` (`pFZP5JQG7iQjIQuC4Bku`) | Voz feminina natural | 10k chars/mês free |
+| **AssemblyAI** | `universal-2` (`language_code: pt`) | STT push-to-talk pt-BR | 5h free credit |
+| **Clerk** | OAuth + JWT | Auth Google/Apple | 10k MAU free |
+
+#### Infraestrutura & Deploy
+
+| Componente | Versão | Função |
+|------------|--------|--------|
+| **Ubuntu Server** | `24.04 LTS` | VPS host |
+| **Docker** | `29.3.1` | Container runtime |
+| **Docker Compose** | `v5.1.1` | Orquestração de serviços |
+| **Postgres** | `16-alpine` | DB do leaderboard |
+| **nginx (Dockerfile.web)** | `alpine` | SPA fallback + cache + gzip |
+| **Nginx Proxy Manager** | `jc21/nginx-proxy-manager:latest` | Reverse proxy + Let's Encrypt |
+| **Vercel** | Edge CDN | Hosting web frontend |
+| **GitHub Actions** | tsc + expo export + deploy SSH | CI/CD |
+| **PostHog** | `4.45.3` | Analytics autocapture |
+
+#### Dev tooling
+
+| Tool | Versão | Função |
+|------|--------|--------|
+| **Node** | `20+` | JS runtime |
+| **pnpm** | `10+` | Package manager |
+| **Python** | `3.10–3.13` | MediaPipe wheel |
+| **TypeScript** | `5.9` | Type-checking strict |
+| **ESLint** | `9.25` | Linter |
+| **Vercel CLI** | latest | Deploy web |
+| **EAS CLI** | latest | Build mobile native |
+
+---
+
+<div align="center">
+
+### Recursos por categoria
+
+</div>
+
+| | Mobile | Web (PWA) | Modo Professor | Voz Bia |
+|:----:|:------:|:---------:|:--------------:|:-------:|
+| **Plataforma** | Expo Go · EAS Build | Chrome/Edge/Safari · iOS install | Dashboard turmas | Claude + ElevenLabs + AssemblyAI |
+| **Câmera** | nativa 30fps | getUserMedia | – | – |
+| **Latência** | WebSocket ~80ms | WebSocket ~120ms | – | TTS ~800ms |
+| **Offline** | queue persistente | Service Worker | – | cache LRU |
+| **Auth** | Clerk + SecureStore | Clerk + cookies | – | Bearer token |
 
 ---
 
