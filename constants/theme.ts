@@ -5,6 +5,7 @@
 // Telas/components com necessidade de dark mode importam o hook e geram
 // estilos via `useMemo(() => createStyles(themeColors), [themeColors])`.
 
+import { useEffect, useState } from "react";
 import { useColorScheme } from "react-native";
 
 import { useLearningStore } from "@/store/learningStore";
@@ -97,8 +98,20 @@ export function useThemeColors(): ThemeColors {
 }
 
 export function useIsDark(): boolean {
+  // SSG do Expo Web Export pre-renderiza assumindo light theme. Se o user
+  // tiver OS em dark, o primeiro paint cliente seria 'dark' enquanto o HTML
+  // server tem 'light' — isso dispara React error #418 (hydration mismatch).
+  // Fix: gate via 'mounted' garante que SSR + 1o paint cliente === light,
+  // depois useEffect dispara re-render com o tema real.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const scheme = useColorScheme();
   const override = useLearningStore((s) => s.themeOverride);
+
+  if (!mounted) return false; // light theme durante hidratação
   if (override === "light") return false;
   if (override === "dark") return true;
   return scheme === "dark";
