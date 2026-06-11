@@ -28,9 +28,11 @@ import { useT } from "@/lib/i18n";
 import { safeBack } from "@/lib/navigation";
 import { posthog } from "@/lib/posthog";
 import {
+  cancelRecording,
   startRecording,
-  stopAndTranscribe,
+  stopAndTranscribeDetailed,
   type RecordingHandle,
+  type StartRecordingResult,
 } from "@/lib/stt";
 import { speak as ttsSpeak, stopSpeaking } from "@/lib/voice";
 import {
@@ -78,6 +80,12 @@ export default function AskBiaScreen() {
   const [transcribing, setTranscribing] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const recordingRef = useRef<RecordingHandle | null>(null);
+  // Promise da start em flight — handleMicPressOut espera ela resolver antes
+  // de tentar parar (fix da race condition: user soltava o botão antes da
+  // permissão resolver e o stop não achava handle).
+  const startPromiseRef = useRef<Promise<StartRecordingResult> | null>(null);
+  // Timestamp do press-in — pra garantir mínimo de duração de gravação.
+  const recordStartTimeRef = useRef<number>(0);
   const scrollRef = useRef<ScrollView>(null);
 
   // Auto-scroll quando msg nova chega
@@ -88,51 +96,83 @@ export default function AskBiaScreen() {
     return () => clearTimeout(id);
   }, [currentConv?.messages.length]);
 
+  function showAssistantError(msg: string) {
+    const convId = currentId ?? startNew();
+    append(convId, {
+      id: `a-${Date.now()}`,
+      role: "assistant",
+      content: msg,
+      createdAt: Date.now(),
+    });
+  }
+
   async function handleMicPressIn() {
     if (loading || transcribing) return;
     stopSpeaking();
     setRecording(true);
+    recordStartTimeRef.current = Date.now();
     posthog.capture("bia_voice_record_start");
-    const result = await startRecording();
-    if (!result.ok) {
-      setRecording(false);
-      if (currentId) {
-        append(currentId, {
-          id: `a-${Date.now()}`,
-          role: "assistant",
-          content: `${result.reason}\n\nNo iPhone: Configurações → Privacidade e Segurança → Microfone → ativa "Expo Go".`,
-          createdAt: Date.now(),
-        });
-      }
-      return;
-    }
-    recordingRef.current = result.recording;
+    // Dispara start mas NÃO espera — handleMicPressOut espera o promise.
+    // Isso evita a race quando user solta antes da permissão resolver.
+    startPromiseRef.current = startRecording();
   }
 
   async function handleMicPressOut() {
-    if (!recording || !recordingRef.current) {
-      setRecording(false);
+    const startPromise = startPromiseRef.current;
+    startPromiseRef.current = null;
+    setRecording(false);
+
+    if (!startPromise) return;
+
+    // Garante mínimo de 250ms de gravação (MediaRecorder precisa de tempo
+    // pra emitir chunks; sem isso o blob fica vazio).
+    const elapsed = Date.now() - recordStartTimeRef.current;
+    if (elapsed < 250) {
+      await new Promise((r) => setTimeout(r, 250 - elapsed));
+    }
+
+    const result = await startPromise;
+    if (!result.ok) {
+      showAssistantError(
+        `${result.reason}\n\nNo iPhone: Configurações → Privacidade → Microfone → ativa "Expo Go".\nNo web: clique no cadeado da URL e libere o mic.`,
+      );
       return;
     }
-    const rec = recordingRef.current;
-    recordingRef.current = null;
-    setRecording(false);
+
+    recordingRef.current = result.recording;
     setTranscribing(true);
-    const text = await stopAndTranscribe(rec);
+    posthog.capture("bia_voice_transcribing");
+    const tx = await stopAndTranscribeDetailed(result.recording);
+    recordingRef.current = null;
     setTranscribing(false);
-    if (!text || !text.trim()) {
-      if (currentId) {
-        append(currentId, {
-          id: `a-${Date.now()}`,
-          role: "assistant",
-          content: "Não captei sua voz. Fala mais perto do microfone e tenta de novo.",
-          createdAt: Date.now(),
+
+    if (!tx.ok) {
+      showAssistantError(tx.reason);
+      return;
+    }
+    if (!tx.text.trim()) {
+      showAssistantError(
+        "Não captei sua voz. Segure o botão por pelo menos 1 segundo e fale mais alto.",
+      );
+      return;
+    }
+    void send(tx.text);
+  }
+
+  // Cleanup ao desmontar — fecha mic se ainda estiver aberto.
+  useEffect(() => {
+    return () => {
+      if (recordingRef.current) {
+        void cancelRecording(recordingRef.current);
+      }
+      const p = startPromiseRef.current;
+      if (p) {
+        void p.then((r) => {
+          if (r.ok) void cancelRecording(r.recording);
         });
       }
-      return;
-    }
-    void send(text);
-  }
+    };
+  }, []);
 
   async function send(text: string) {
     const content = text.trim();

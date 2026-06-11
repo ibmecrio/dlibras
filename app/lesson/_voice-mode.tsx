@@ -50,8 +50,9 @@ import { posthog } from "@/lib/posthog";
 import {
   cancelRecording,
   startRecording,
-  stopAndTranscribe,
+  stopAndTranscribeDetailed,
   type RecordingHandle,
+  type StartRecordingResult,
 } from "@/lib/stt";
 import { cardShadow } from "@/lib/styles";
 import { speak as ttsSpeak, stopSpeaking } from "@/lib/voice";
@@ -92,6 +93,10 @@ export default function VoiceLessonScreen() {
   const advanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const recordingRef = useRef<RecordingHandle | null>(null);
+  // Promise da start em flight pra evitar race quando user solta o botão
+  // antes da permissão resolver.
+  const startPromiseRef = useRef<Promise<StartRecordingResult> | null>(null);
+  const recordStartTimeRef = useRef<number>(0);
   // Token pra invalidar respostas atrasadas da Bia quando o aluno avança
   // ou cancela antes da resposta chegar.
   const askTokenRef = useRef(0);
@@ -240,29 +245,41 @@ export default function VoiceLessonScreen() {
     stopSpeaking();
     setIsSpeaking(false);
     setRecording(true);
+    recordStartTimeRef.current = Date.now();
     posthog.capture("voice_lesson_record_start");
-    const result = await startRecording();
+    // Dispara start sem esperar — handleMicPressOut espera o promise.
+    startPromiseRef.current = startRecording();
+  }
+
+  async function handleMicPressOut() {
+    const startPromise = startPromiseRef.current;
+    startPromiseRef.current = null;
+    setRecording(false);
+    if (!startPromise) return;
+
+    // Min 250ms pra MediaRecorder/expo-av terem tempo de capturar audio.
+    const elapsed = Date.now() - recordStartTimeRef.current;
+    if (elapsed < 250) {
+      await new Promise((r) => setTimeout(r, 250 - elapsed));
+    }
+
+    const result = await startPromise;
     if (!result.ok) {
-      setRecording(false);
       setBiaMessage(result.reason);
       return;
     }
     recordingRef.current = result.recording;
-  }
-
-  async function handleMicPressOut() {
-    if (!recording || !recordingRef.current) {
-      setRecording(false);
+    setTranscribing(true);
+    const tx = await stopAndTranscribeDetailed(result.recording);
+    recordingRef.current = null;
+    setTranscribing(false);
+    if (!tx.ok) {
+      setBiaMessage(tx.reason);
       return;
     }
-    const rec = recordingRef.current;
-    recordingRef.current = null;
-    setRecording(false);
-    setTranscribing(true);
-    const text = await stopAndTranscribe(rec);
-    setTranscribing(false);
+    const text = tx.text;
     if (!text || !text.trim()) {
-      setBiaMessage("Não captei sua voz. Tenta de novo, mais perto do mic.");
+      setBiaMessage("Não captei sua voz. Segura o botão por pelo menos 1 segundo.");
       return;
     }
     posthog.capture("voice_lesson_question_sent", { length: text.length });

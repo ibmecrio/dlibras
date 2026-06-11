@@ -159,6 +159,7 @@ async function startRecordingNative(): Promise<StartRecordingResult> {
       Audio.RecordingOptionsPresets.HIGH_QUALITY,
     );
     await recording.startAsync();
+    console.log("[stt] native recording started");
     return { ok: true, recording: { kind: "native", recording } };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -182,7 +183,10 @@ async function startRecordingWeb(): Promise<StartRecordingResult> {
     recorder.ondataavailable = (e) => {
       if (e.data && e.data.size > 0) chunks.push(e.data);
     };
-    recorder.start();
+    // Timeslice 100ms — força emissão periódica de chunks, garantindo que
+    // mesmo gravações muito curtas (< 500ms) tenham dados quando paradas.
+    recorder.start(100);
+    console.log("[stt] web recording started, mime:", recorder.mimeType);
     return {
       ok: true,
       recording: {
@@ -229,12 +233,26 @@ function pickWebMime(): string | undefined {
 // stopAndTranscribe
 // ─────────────────────────────────────────────────────────────────────────
 
+export type TranscribeResult =
+  | { ok: true; text: string }
+  | { ok: false; reason: string };
+
 export async function stopAndTranscribe(
   handle: RecordingHandle,
 ): Promise<string | null> {
+  const r = await stopAndTranscribeDetailed(handle);
+  return r.ok ? r.text : null;
+}
+
+// Versão com detalhes de erro pra UI mostrar feedback claro.
+export async function stopAndTranscribeDetailed(
+  handle: RecordingHandle,
+): Promise<TranscribeResult> {
   if (!USE_PROXY && !ASSEMBLYAI_KEY) {
-    console.warn("[stt] EXPO_PUBLIC_ASSEMBLYAI_API_KEY missing");
-    return null;
+    return {
+      ok: false,
+      reason: "AssemblyAI API key não configurada (EXPO_PUBLIC_ASSEMBLYAI_API_KEY).",
+    };
   }
   try {
     const audioBlob =
@@ -242,9 +260,13 @@ export async function stopAndTranscribe(
         ? await stopWebRecording(handle)
         : await stopNativeRecording(handle);
     if (!audioBlob || audioBlob.size === 0) {
-      console.warn("[stt] blob vazio");
-      return null;
+      console.warn("[stt] blob vazio", { kind: handle.kind });
+      return {
+        ok: false,
+        reason: "Gravação ficou vazia. Segure o botão por pelo menos 1 segundo.",
+      };
     }
+    console.log("[stt] blob size:", audioBlob.size, "type:", audioBlob.type);
 
     const base = await getAssemblyBaseUrl();
     const upload = await fetch(`${base}/upload`, {
@@ -253,8 +275,12 @@ export async function stopAndTranscribe(
       body: audioBlob,
     });
     if (!upload.ok) {
-      console.warn("[stt] upload error", upload.status);
-      return null;
+      const body = await upload.text().catch(() => "");
+      console.warn("[stt] upload error", upload.status, body.slice(0, 200));
+      return {
+        ok: false,
+        reason: `Falha no upload (HTTP ${upload.status}). Verifica conexão e a key da AssemblyAI.`,
+      };
     }
     const { upload_url } = (await upload.json()) as { upload_url: string };
 
@@ -271,8 +297,12 @@ export async function stopAndTranscribe(
       }),
     });
     if (!tx.ok) {
-      console.warn("[stt] transcript create error", tx.status);
-      return null;
+      const body = await tx.text().catch(() => "");
+      console.warn("[stt] transcript create error", tx.status, body.slice(0, 200));
+      return {
+        ok: false,
+        reason: `Falha criando transcrição (HTTP ${tx.status}).`,
+      };
     }
     const { id } = (await tx.json()) as { id: string };
 
@@ -286,16 +316,22 @@ export async function stopAndTranscribe(
         text?: string;
         error?: string;
       };
-      if (data.status === "completed") return data.text ?? "";
+      if (data.status === "completed") {
+        return { ok: true, text: data.text ?? "" };
+      }
       if (data.status === "error") {
         console.warn("[stt] transcript error", data.error);
-        return null;
+        return {
+          ok: false,
+          reason: `AssemblyAI retornou erro: ${data.error ?? "desconhecido"}`,
+        };
       }
     }
-    return null;
+    return { ok: false, reason: "Transcrição demorou demais (timeout 48s)." };
   } catch (err) {
-    console.warn("[stt] threw", err);
-    return null;
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn("[stt] threw", msg);
+    return { ok: false, reason: `Erro: ${msg}` };
   }
 }
 

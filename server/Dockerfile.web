@@ -56,4 +56,6 @@ EOF
 
 # dist/ vai ser injetado via volume mount no docker-compose (mais agil que rebuild)
 EXPOSE 80
-HEALTHCHECK --interval=30s --timeout=5s CMD wget -qO- http://localhost/healthz >/dev/null || exit 1
+# 127.0.0.1 em vez de "localhost" pra evitar IPv6 (nginx:alpine só ouve IPv4 default)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s \
+  CMD wget -qO- http://127.0.0.1/healthz >/dev/null 2>&1 || exit 1

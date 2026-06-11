@@ -40,4 +40,21 @@ export const UNITS: Unit[] = [
     order: 3,
     lessonIds: ["libras-motion-1", "libras-motion-2"],
   },
+  // Unidade fictícia que aponta para os IDs dos diálogos em data/dialogues.ts.
+  // O conteúdo dos diálogos é estruturado de forma independente das lições
+  // baseadas em câmera — esta unidade serve como índice/referência.
+  {
+    id: "libras-unit-4",
+    languageCode: "libras",
+    title: "Comunicação básica",
+    description:
+      "Pratique conversas reais em Libras com mini-diálogos do dia a dia",
+    order: 4,
+    lessonIds: [
+      "dialogue-cafe-manha",
+      "dialogue-conhecer",
+      "dialogue-sala-aula",
+      "dialogue-mercado",
+    ],
+  },
 ];

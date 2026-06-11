@@ -495,6 +495,44 @@ export default function ProfileScreen() {
         {/* Install Card — universal (Chrome/Safari iOS/Edge/Firefox/Native) */}
         <InstallAppCard />
 
+        {/* Link pro Ranking semanal */}
+        <Pressable
+          onPress={() => router.push("/leaderboard" as never)}
+          style={({ pressed }) => [
+            styles.aboutLinkBtn,
+            pressed && { opacity: 0.7 },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Ranking semanal"
+        >
+          <Ionicons name="trophy" size={18} color={c.primary.purple} />
+          <Text style={styles.aboutLinkText}>Ranking semanal</Text>
+          <Ionicons
+            name="chevron-forward"
+            size={16}
+            color={c.neutral.textSecondary}
+          />
+        </Pressable>
+
+        {/* Link pro Modo Professor (beta) */}
+        <Pressable
+          onPress={() => router.push("/teacher-dashboard" as never)}
+          style={({ pressed }) => [
+            styles.aboutLinkBtn,
+            pressed && { opacity: 0.7 },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Modo Professor (beta)"
+        >
+          <Ionicons name="school" size={18} color={c.primary.purple} />
+          <Text style={styles.aboutLinkText}>Modo Professor (beta)</Text>
+          <Ionicons
+            name="chevron-forward"
+            size={16}
+            color={c.neutral.textSecondary}
+          />
+        </Pressable>
+
         <Pressable
           style={styles.signOutButton}
           onPress={() => setShowLogoutModal(true)}

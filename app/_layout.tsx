@@ -53,6 +53,8 @@ function AppStack() {
         <Stack.Screen name="ask-bia" />
         <Stack.Screen name="quiz" />
         <Stack.Screen name="about" />
+        <Stack.Screen name="leaderboard" />
+        <Stack.Screen name="teacher-dashboard" />
       </Stack>
       {/* Banner global de unlock — fica sobre qualquer screen. */}
       <AchievementToast />

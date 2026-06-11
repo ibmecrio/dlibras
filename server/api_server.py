@@ -16,7 +16,7 @@ from typing import Any, Optional
 import joblib
 import mediapipe as mp
 import numpy as np
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
@@ -829,6 +829,504 @@ async def proxy_assemblyai(rest: str, req: Request):
         return Response(content=e.read(), media_type="application/json", status_code=e.code)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=502)
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Leaderboard endpoints — Postgres-backed.
+#
+# Frontend usa Clerk pra auth; manda user_id (ex: "user_abc123") + display_name
+# no body. Schema é criado lazy no startup. Endpoints exigem o mesmo Bearer
+# token do proxy (DLIBRAS_PROXY_SECRET), pra evitar spam de score fake.
+#
+# Sem DATABASE_URL configurado → todos os endpoints retornam 503 e o app
+# segue rodando normalmente (degrade gracioso, igual aos proxies de IA).
+# ─────────────────────────────────────────────────────────────────────
+from datetime import datetime
+
+# Schema criado no primeiro endpoint chamado; flag em memória evita re-CREATE.
+_leaderboard_schema_ready: bool = False
+
+
+def _get_db_conn():
+    """Abre conexão psycopg lazy usando DATABASE_URL.
+    Levanta HTTPException 503 se a env não tá setada ou psycopg não instalado.
+    Caller é responsável por fechar (use `with`).
+    """
+    db_url = _os.environ.get("DATABASE_URL", "")
+    if not db_url:
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "leaderboard requires DATABASE_URL"},
+        )
+    try:
+        import psycopg  # type: ignore
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail={"error": "psycopg not installed on server"},
+        ) from exc
+    try:
+        return psycopg.connect(db_url, connect_timeout=5)
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=503,
+            detail={"error": f"database connection failed: {str(exc)[:120]}"},
+        ) from exc
+
+
+def _ensure_leaderboard_schema() -> None:
+    """Cria tabelas + índices se não existirem. Idempotente, roda só uma vez
+    por processo (flag em memória). Se DATABASE_URL não tá setado, no-op."""
+    global _leaderboard_schema_ready
+    if _leaderboard_schema_ready:
+        return
+    db_url = _os.environ.get("DATABASE_URL", "")
+    if not db_url:
+        return  # sem DB, schema fica pendente; endpoints retornam 503
+    try:
+        with _get_db_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS users (
+                      id TEXT PRIMARY KEY,
+                      display_name TEXT NOT NULL,
+                      avatar_emoji TEXT DEFAULT '🦊',
+                      created_at TIMESTAMPTZ DEFAULT NOW(),
+                      updated_at TIMESTAMPTZ DEFAULT NOW()
+                    );
+                    """
+                )
+                cur.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS scores (
+                      id BIGSERIAL PRIMARY KEY,
+                      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                      xp INTEGER NOT NULL,
+                      lessons_completed INTEGER NOT NULL DEFAULT 0,
+                      streak INTEGER NOT NULL DEFAULT 0,
+                      hearts INTEGER NOT NULL DEFAULT 5,
+                      recorded_at TIMESTAMPTZ DEFAULT NOW(),
+                      week_of TIMESTAMPTZ NOT NULL
+                    );
+                    """
+                )
+                cur.execute("CREATE INDEX IF NOT EXISTS idx_scores_user ON scores(user_id);")
+                cur.execute("CREATE INDEX IF NOT EXISTS idx_scores_week ON scores(week_of DESC);")
+                cur.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_scores_xp_week ON scores(week_of DESC, xp DESC);"
+                )
+            conn.commit()
+        _leaderboard_schema_ready = True
+        print("[leaderboard] schema ready (tables + indexes)")
+    except HTTPException:
+        # repassa; provavelmente DATABASE_URL inválido — endpoints individuais
+        # também vão falhar com 503 e o usuário vê a msg.
+        raise
+    except Exception as e:
+        print(f"[leaderboard] schema init failed: {e}")
+
+
+@app.on_event("startup")
+def _startup_leaderboard() -> None:
+    """Tenta criar schema no boot. Falha silenciosa — endpoints repropagam o erro."""
+    try:
+        _ensure_leaderboard_schema()
+    except HTTPException as e:
+        print(f"[leaderboard] startup deferred: {e.detail}")
+    except Exception as e:  # noqa: BLE001
+        print(f"[leaderboard] startup error: {e}")
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Pydantic models
+# ─────────────────────────────────────────────────────────────────────
+class UpsertUserRequest(BaseModel):
+    user_id: str = Field(..., min_length=1, max_length=128)
+    display_name: str = Field(..., min_length=1, max_length=80)
+    avatar_emoji: Optional[str] = Field("🦊", max_length=8)
+
+
+class SubmitScoreRequest(BaseModel):
+    user_id: str = Field(..., min_length=1, max_length=128)
+    xp: int = Field(..., ge=0, le=1_000_000)
+    lessons_completed: int = Field(0, ge=0, le=10_000)
+    streak: int = Field(0, ge=0, le=10_000)
+    hearts: int = Field(5, ge=0, le=100)
+
+
+class LeaderboardEntry(BaseModel):
+    rank: int
+    user_id: str
+    display_name: str
+    avatar_emoji: str
+    xp: int
+    lessons_completed: int
+    streak: int
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Helpers SQL — semana atual = date_trunc('week', NOW()) (segunda-feira UTC)
+# ─────────────────────────────────────────────────────────────────────
+def _weekly_top_query(limit: int) -> tuple[str, tuple]:
+    sql = """
+        SELECT
+          u.id AS user_id,
+          u.display_name,
+          u.avatar_emoji,
+          COALESCE(SUM(s.xp), 0)::INT AS total_xp,
+          COALESCE(SUM(s.lessons_completed), 0)::INT AS total_lessons,
+          COALESCE(MAX(s.streak), 0)::INT AS best_streak
+        FROM users u
+        JOIN scores s ON s.user_id = u.id
+        WHERE s.week_of = date_trunc('week', NOW())
+        GROUP BY u.id, u.display_name, u.avatar_emoji
+        ORDER BY total_xp DESC, u.id ASC
+        LIMIT %s
+    """
+    return sql, (limit,)
+
+
+def _all_time_top_query(limit: int) -> tuple[str, tuple]:
+    sql = """
+        SELECT
+          u.id AS user_id,
+          u.display_name,
+          u.avatar_emoji,
+          COALESCE(SUM(s.xp), 0)::INT AS total_xp,
+          COALESCE(SUM(s.lessons_completed), 0)::INT AS total_lessons,
+          COALESCE(MAX(s.streak), 0)::INT AS best_streak
+        FROM users u
+        JOIN scores s ON s.user_id = u.id
+        GROUP BY u.id, u.display_name, u.avatar_emoji
+        ORDER BY total_xp DESC, u.id ASC
+        LIMIT %s
+    """
+    return sql, (limit,)
+
+
+def _user_weekly_rank(cur, user_id: str) -> Optional[int]:
+    """Retorna o rank do user no leaderboard semanal, ou None se ele não tá lá."""
+    cur.execute(
+        """
+        WITH weekly AS (
+          SELECT user_id, SUM(xp)::INT AS xp_sum
+          FROM scores
+          WHERE week_of = date_trunc('week', NOW())
+          GROUP BY user_id
+        ), ranked AS (
+          SELECT user_id, xp_sum,
+            RANK() OVER (ORDER BY xp_sum DESC, user_id ASC) AS r
+          FROM weekly
+        )
+        SELECT r FROM ranked WHERE user_id = %s
+        """,
+        (user_id,),
+    )
+    row = cur.fetchone()
+    return int(row[0]) if row else None
+
+
+def _user_all_time_rank(cur, user_id: str) -> Optional[int]:
+    cur.execute(
+        """
+        WITH alltime AS (
+          SELECT user_id, SUM(xp)::INT AS xp_sum
+          FROM scores
+          GROUP BY user_id
+        ), ranked AS (
+          SELECT user_id, xp_sum,
+            RANK() OVER (ORDER BY xp_sum DESC, user_id ASC) AS r
+          FROM alltime
+        )
+        SELECT r FROM ranked WHERE user_id = %s
+        """,
+        (user_id,),
+    )
+    row = cur.fetchone()
+    return int(row[0]) if row else None
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Endpoints
+# ─────────────────────────────────────────────────────────────────────
+def _maybe_rate_limit(spec: str):
+    """Wrapper que aplica _limiter.limit() só se slowapi tá instalado.
+    Permite decoradores condicionais sem if/else duplicado no source."""
+    if _limiter is None:
+        def _noop(fn):
+            return fn
+        return _noop
+    return _limiter.limit(spec)
+
+
+@app.post("/api/leaderboard/upsert-user")
+async def leaderboard_upsert_user(request: Request, body: UpsertUserRequest):
+    err = _check_proxy_auth(request)
+    if err is not None:
+        return err
+    _ensure_leaderboard_schema()
+    avatar = body.avatar_emoji or "🦊"
+    try:
+        with _get_db_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO users (id, display_name, avatar_emoji, updated_at)
+                    VALUES (%s, %s, %s, NOW())
+                    ON CONFLICT (id) DO UPDATE SET
+                      display_name = EXCLUDED.display_name,
+                      avatar_emoji = EXCLUDED.avatar_emoji,
+                      updated_at = NOW()
+                    """,
+                    (body.user_id, body.display_name, avatar),
+                )
+            conn.commit()
+        return {"ok": True, "user_id": body.user_id}
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"error": str(e)[:200]}, status_code=500)
+
+
+@app.post("/api/leaderboard/submit-score")
+async def leaderboard_submit_score(request: Request, body: SubmitScoreRequest):
+    err = _check_proxy_auth(request)
+    if err is not None:
+        return err
+    _ensure_leaderboard_schema()
+    try:
+        with _get_db_conn() as conn:
+            with conn.cursor() as cur:
+                # Garante que o user existe — sem cadastro prévio cria placeholder.
+                # Isso evita FK error caso o client envie score antes de upsert-user.
+                cur.execute(
+                    """
+                    INSERT INTO users (id, display_name, avatar_emoji)
+                    VALUES (%s, %s, %s)
+                    ON CONFLICT (id) DO NOTHING
+                    """,
+                    (body.user_id, body.user_id[:30], "🦊"),
+                )
+                cur.execute(
+                    """
+                    INSERT INTO scores (user_id, xp, lessons_completed, streak, hearts, week_of)
+                    VALUES (%s, %s, %s, %s, %s, date_trunc('week', NOW()))
+                    """,
+                    (
+                        body.user_id,
+                        body.xp,
+                        body.lessons_completed,
+                        body.streak,
+                        body.hearts,
+                    ),
+                )
+                conn.commit()
+                rank_weekly = _user_weekly_rank(cur, body.user_id)
+                rank_all_time = _user_all_time_rank(cur, body.user_id)
+        return {
+            "ok": True,
+            "rank_weekly": rank_weekly,
+            "rank_all_time": rank_all_time,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"error": str(e)[:200]}, status_code=500)
+
+
+@app.get("/api/leaderboard/weekly")
+@_maybe_rate_limit("30/minute")
+async def leaderboard_weekly(request: Request, limit: int = 50):
+    err = _check_proxy_auth(request)
+    if err is not None:
+        return err
+    _ensure_leaderboard_schema()
+    limit = max(1, min(limit, 200))
+    try:
+        with _get_db_conn() as conn:
+            with conn.cursor() as cur:
+                sql, params = _weekly_top_query(limit)
+                cur.execute(sql, params)
+                rows = cur.fetchall()
+        entries: list[dict] = []
+        for idx, row in enumerate(rows, start=1):
+            entries.append(
+                {
+                    "rank": idx,
+                    "user_id": row[0],
+                    "display_name": row[1],
+                    "avatar_emoji": row[2] or "🦊",
+                    "xp": int(row[3]),
+                    "lessons_completed": int(row[4]),
+                    "streak": int(row[5]),
+                }
+            )
+        return entries
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"error": str(e)[:200]}, status_code=500)
+
+
+@app.get("/api/leaderboard/all-time")
+@_maybe_rate_limit("30/minute")
+async def leaderboard_all_time(request: Request, limit: int = 50):
+    err = _check_proxy_auth(request)
+    if err is not None:
+        return err
+    _ensure_leaderboard_schema()
+    limit = max(1, min(limit, 200))
+    try:
+        with _get_db_conn() as conn:
+            with conn.cursor() as cur:
+                sql, params = _all_time_top_query(limit)
+                cur.execute(sql, params)
+                rows = cur.fetchall()
+        entries: list[dict] = []
+        for idx, row in enumerate(rows, start=1):
+            entries.append(
+                {
+                    "rank": idx,
+                    "user_id": row[0],
+                    "display_name": row[1],
+                    "avatar_emoji": row[2] or "🦊",
+                    "xp": int(row[3]),
+                    "lessons_completed": int(row[4]),
+                    "streak": int(row[5]),
+                }
+            )
+        return entries
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"error": str(e)[:200]}, status_code=500)
+
+
+@app.get("/api/leaderboard/around-me")
+@_maybe_rate_limit("30/minute")
+async def leaderboard_around_me(request: Request, user_id: str, window: int = 5):
+    """Retorna o usuário no centro + `window` acima e abaixo no ranking semanal.
+    Útil pra "você está em 47º" quando ele não cai no top 50."""
+    err = _check_proxy_auth(request)
+    if err is not None:
+        return err
+    _ensure_leaderboard_schema()
+    window = max(0, min(window, 50))
+    try:
+        with _get_db_conn() as conn:
+            with conn.cursor() as cur:
+                user_rank = _user_weekly_rank(cur, user_id)
+                if user_rank is None:
+                    # Usuário não tem score essa semana — retorna estrutura vazia
+                    # com flag pra UI mostrar "envie um score pra entrar no ranking".
+                    return {
+                        "user_rank": None,
+                        "entries": [],
+                        "note": "user has no score this week",
+                    }
+                lo = max(1, user_rank - window)
+                hi = user_rank + window
+                cur.execute(
+                    """
+                    WITH weekly AS (
+                      SELECT
+                        u.id AS user_id,
+                        u.display_name,
+                        u.avatar_emoji,
+                        SUM(s.xp)::INT AS xp_sum,
+                        SUM(s.lessons_completed)::INT AS lessons_sum,
+                        MAX(s.streak)::INT AS streak_max
+                      FROM users u
+                      JOIN scores s ON s.user_id = u.id
+                      WHERE s.week_of = date_trunc('week', NOW())
+                      GROUP BY u.id, u.display_name, u.avatar_emoji
+                    ), ranked AS (
+                      SELECT *,
+                        RANK() OVER (ORDER BY xp_sum DESC, user_id ASC) AS r
+                      FROM weekly
+                    )
+                    SELECT r, user_id, display_name, avatar_emoji, xp_sum, lessons_sum, streak_max
+                    FROM ranked
+                    WHERE r BETWEEN %s AND %s
+                    ORDER BY r ASC
+                    """,
+                    (lo, hi),
+                )
+                rows = cur.fetchall()
+        entries: list[dict] = []
+        for row in rows:
+            entries.append(
+                {
+                    "rank": int(row[0]),
+                    "user_id": row[1],
+                    "display_name": row[2],
+                    "avatar_emoji": row[3] or "🦊",
+                    "xp": int(row[4]),
+                    "lessons_completed": int(row[5]),
+                    "streak": int(row[6]),
+                }
+            )
+        return {"user_rank": user_rank, "entries": entries}
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"error": str(e)[:200]}, status_code=500)
+
+
+@app.get("/api/leaderboard/me")
+@_maybe_rate_limit("30/minute")
+async def leaderboard_me(request: Request, user_id: str):
+    """Stats consolidadas pro user: XP total, XP da semana, ranks, streak max."""
+    err = _check_proxy_auth(request)
+    if err is not None:
+        return err
+    _ensure_leaderboard_schema()
+    try:
+        with _get_db_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT
+                      COALESCE(SUM(xp), 0)::INT AS total_xp,
+                      COALESCE(SUM(xp) FILTER (WHERE week_of = date_trunc('week', NOW())), 0)::INT AS weekly_xp,
+                      COALESCE(MAX(streak), 0)::INT AS best_streak,
+                      COALESCE(SUM(lessons_completed), 0)::INT AS total_lessons,
+                      COUNT(*)::INT AS sessions
+                    FROM scores
+                    WHERE user_id = %s
+                    """,
+                    (user_id,),
+                )
+                stats_row = cur.fetchone()
+                weekly_rank = _user_weekly_rank(cur, user_id)
+                all_time_rank = _user_all_time_rank(cur, user_id)
+                # Display name + avatar (se já cadastrado)
+                cur.execute(
+                    "SELECT display_name, avatar_emoji FROM users WHERE id = %s",
+                    (user_id,),
+                )
+                user_row = cur.fetchone()
+        if stats_row is None:
+            stats_row = (0, 0, 0, 0, 0)
+        display_name = user_row[0] if user_row else None
+        avatar_emoji = (user_row[1] if user_row else None) or "🦊"
+        return {
+            "user_id": user_id,
+            "display_name": display_name,
+            "avatar_emoji": avatar_emoji,
+            "total_xp": int(stats_row[0]),
+            "weekly_xp": int(stats_row[1]),
+            "streak": int(stats_row[2]),
+            "total_lessons": int(stats_row[3]),
+            "sessions": int(stats_row[4]),
+            "weekly_rank": weekly_rank,
+            "all_time_rank": all_time_rank,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"error": str(e)[:200]}, status_code=500)
 
 
 if __name__ == "__main__":
